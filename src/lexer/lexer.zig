@@ -21,7 +21,12 @@ pub const Lexer = struct {
 
         switch (self.current_char) {
             '=' => {
-                next_token = newToken(token.ASSIGN, &[_]u8{self.current_char});
+                if (self.peakChar() == '=') {
+                    self.readChar();
+                    next_token = newToken(token.EQ, "==");
+                } else {
+                    next_token = newToken(token.ASSIGN, &[_]u8{self.current_char});
+                }
             },
             ';' => {
                 next_token = newToken(token.SEMICOLON, &[_]u8{self.current_char});
@@ -35,8 +40,13 @@ pub const Lexer = struct {
             ',' => {
                 next_token = newToken(token.COMMA, &[_]u8{self.current_char});
             },
-            '+' => {
-                next_token = newToken(token.PLUS, &[_]u8{self.current_char});
+            '!' => {
+                if (self.peakChar() == '=') {
+                    self.readChar();
+                    next_token = newToken(token.NOT_EQ, "!=");
+                } else {
+                    next_token = newToken(token.BANG, &[_]u8{self.current_char});
+                }
             },
             '{' => {
                 next_token = newToken(token.LBRACE, &[_]u8{self.current_char});
@@ -44,6 +54,25 @@ pub const Lexer = struct {
             '}' => {
                 next_token = newToken(token.RBRACE, &[_]u8{self.current_char});
             },
+            '+' => {
+                next_token = newToken(token.PLUS, &[_]u8{self.current_char});
+            },
+            '-' => {
+                next_token = newToken(token.MINUS, &[_]u8{self.current_char});
+            },
+            '/' => {
+                next_token = newToken(token.SLASH, &[_]u8{self.current_char});
+            },
+            '*' => {
+                next_token = newToken(token.ASTERISK, &[_]u8{self.current_char});
+            },
+            '<' => {
+                next_token = newToken(token.LT, &[_]u8{self.current_char});
+            },
+            '>' => {
+                next_token = newToken(token.GT, &[_]u8{self.current_char});
+            },
+
             0 => {
                 next_token = newToken(token.EOF, "");
             },
@@ -65,6 +94,14 @@ pub const Lexer = struct {
         self.readChar();
 
         return next_token;
+    }
+
+    fn peakChar(self: *Lexer) u8 {
+        if (self.next_position >= self.input.len) {
+            return 0;
+        } else {
+            return self.input[self.next_position];
+        }
     }
 
     fn readIdentifier(self: *Lexer) []const u8 {
