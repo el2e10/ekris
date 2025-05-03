@@ -23,8 +23,10 @@ pub fn build(b: *std.Build) void {
     });
 
     exe_mod.addImport("token", token_module);
+    exe_mod.addImport("lexer", lexer_module);
 
     lexer_module.addImport("token", token_module);
+
     token_module.addImport("lexer", lexer_module);
 
     // This declares intent for the executable to be installed into the
