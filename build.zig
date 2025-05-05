@@ -13,7 +13,9 @@ pub fn build(b: *std.Build) void {
     });
 
     const token_module = b.addModule("token", .{ .root_source_file = b.path("src/token.zig") });
+    const ast_module = b.addModule("ast", .{ .root_source_file = b.path("src/ast/ast.zig") });
     const lexer_module = b.addModule("lexer", .{ .root_source_file = b.path("src/lexer/lexer.zig") });
+    const parser_module = b.addModule("parser", .{ .root_source_file = b.path("src/parser/parser.zig") });
 
     // This creates another `std.Build.Step.Compile`, but this one builds an executable
     // rather than a static library.
@@ -24,10 +26,20 @@ pub fn build(b: *std.Build) void {
 
     exe_mod.addImport("token", token_module);
     exe_mod.addImport("lexer", lexer_module);
+    exe_mod.addImport("parser", lexer_module);
+    exe_mod.addImport("ast", ast_module);
 
     lexer_module.addImport("token", token_module);
 
     token_module.addImport("lexer", lexer_module);
+
+    parser_module.addImport("token", token_module);
+    parser_module.addImport("lexer", lexer_module);
+    parser_module.addImport("ast", ast_module);
+
+    ast_module.addImport("token", token_module);
+    ast_module.addImport("parser", parser_module);
+    ast_module.addImport("lexer", lexer_module);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
@@ -59,7 +71,7 @@ pub fn build(b: *std.Build) void {
 
     // -- TESTING --
 
-    const test_module = b.option([]const u8, "test-module", "Module to test(lexer)") orelse "all";
+    const test_module = b.option([]const u8, "test-module", "Module to test(lexer, parser)") orelse "all";
 
     const lexer_module_test = b.addTest(.{
         .name = "lexer_module_test",
@@ -68,7 +80,26 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const parser_module_test = b.addTest(.{
+        .name = "parser_module_test",
+        .root_source_file = b.path("src/parser/parser_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const ast_module_test = b.addTest(.{
+        .name = "ast_module_test",
+        .root_source_file = b.path("src/ast/ast_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    ast_module_test.root_module.addImport("ast", ast_module);
     lexer_module_test.root_module.addImport("token", token_module);
+
+    parser_module_test.root_module.addImport("ast", ast_module);
+    parser_module_test.root_module.addImport("token", token_module);
+    parser_module_test.root_module.addImport("lexer", lexer_module);
 
     // running the unit tests.
     const test_step = b.step("test", "Run unit tests");
@@ -79,6 +110,10 @@ pub fn build(b: *std.Build) void {
         const run_unit_test = b.addRunArtifact(lexer_module_test);
         test_step.dependOn(&run_unit_test.step);
         test_step.dependOn(&lexer_module_test.step);
+    } else if (std.mem.eql(u8, test_module, "parser")) {
+        const run_unit_test = b.addRunArtifact(lexer_module_test);
+        test_step.dependOn(&run_unit_test.step);
+        test_step.dependOn(&parser_module_test.step);
     } else {
         std.debug.print("Invalid --test-module {s} value: use 'lexer'", .{test_module});
     }
