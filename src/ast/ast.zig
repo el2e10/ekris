@@ -1,40 +1,10 @@
 const std = @import("std");
 const token = @import("token");
-
-const Node = struct {
-    ptr: *anyopaque,
-    tokenLiteralFn: *const fn (ptr: *anyopaque) anyerror!void,
-
-    fn tokenLiteral(self: Node) !void {
-        return self.tokenLiteralFn();
-    }
-};
-
-pub const Statement = struct {
-    ptr: *anyopaque,
-    node: Node,
-    // statementNodeFn: *const fn (ptr: *anyopaque) anyerror!void,
-
-    // fn statementNode(self: Statement) !void {
-    //     return self.statementNodeFn();
-    // }
-
-    pub fn createNode(self: *Statement) Node {
-        return Node{
-            .ptr = self,
-            .tokenLiteralFn = self.statementNodeFn,
-        };
-    }
-};
+const TokenType = token.TokenType;
 
 const Expression = struct {
     ptr: *anyopaque,
     node: Node,
-    // expressionNodeFn: *const fn (ptr: *anyopaque) anyerror!void,
-
-    // fn expressionNode(self: Expression) !void {
-    //     return self.expressionNodeFn();
-    // }
 };
 
 pub const Program = struct {
@@ -54,37 +24,68 @@ pub const Program = struct {
             .tokenLiteralFn = tokenLiteral,
         };
     }
+
+    pub fn deinit(self: *Program, comptime T: type, allocator: std.mem.Allocator) void {
+        for (self.statements) |stmt| {
+            const ptr: *T = @ptrCast(@alignCast(stmt.ptr));
+            allocator.destroy(ptr);
+        }
+
+        allocator.free(self.statements);
+        allocator.destroy(self);
+    }
 };
 
 pub const Identifier = struct {
-    token: token.Token,
+    token: TokenType,
     value: []const u8,
 
     pub fn tokenLiteral(self: Identifier) []const u8 {
-        return self.token.Literal;
+        return self.token.toString();
+    }
+};
+
+pub const Statement = struct {
+    ptr: *anyopaque,
+    node: Node,
+
+    pub fn tokenLiteral(self: Statement) []const u8 {
+        return self.node.tokenLiteral();
+    }
+};
+
+pub const LetStatement = struct {
+    token: TokenType,
+    name: Identifier,
+    expression: ?Expression,
+
+    pub fn tokenLiteral(ptr: *anyopaque) []const u8 {
+        const self: *LetStatement = @ptrCast(@alignCast(ptr));
+        return self.token.toString();
     }
 
-    pub fn createNode(self: *Identifier) Node {
+    fn createNode(self: *LetStatement) Node {
         return Node{
             .ptr = self,
             .tokenLiteralFn = tokenLiteral,
         };
     }
+
+    pub fn createStatement(self: *LetStatement) Statement {
+        const node = self.createNode();
+        const statement = Statement{
+            .ptr = self,
+            .node = node,
+        };
+        return statement;
+    }
 };
 
-pub const LetStatement = struct {
-    token: token.Token,
-    name: Identifier,
-    expression: Expression,
+pub const Node = struct {
+    ptr: *anyopaque,
+    tokenLiteralFn: *const fn (ptr: *anyopaque) []const u8,
 
-    pub fn tokenLiteral(self: LetStatement) []const u8 {
-        return self.token.Literal;
-    }
-
-    pub fn createNode(self: *LetStatement) Node {
-        Node{
-            .ptr = self,
-            .tokenLiteralFn = tokenLiteral,
-        };
+    pub fn tokenLiteral(self: Node) []const u8 {
+        return self.tokenLiteralFn(self.ptr);
     }
 };

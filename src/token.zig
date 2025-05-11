@@ -1,48 +1,77 @@
 const std = @import("std");
 
-pub const ILLEGAL = "ILLEGAL";
-pub const EOF = "EOF";
-pub const IDENT = "IDENT";
-pub const INT = "INT";
-pub const ASSIGN = "=";
-pub const EQ = "==";
-pub const NOT_EQ = "==";
-pub const PLUS = "+";
-pub const MINUS = "-";
-pub const BANG = "!";
-pub const ASTERISK = "*";
-pub const SLASH = "/";
-pub const LT = "<";
-pub const GT = ">";
-pub const COMMA = ",";
-pub const SEMICOLON = ";";
-pub const LPAREN = "(";
-pub const RPAREN = ")";
-pub const LBRACE = "{";
-pub const RBRACE = "}";
-pub const FUNCTION = "FUNCTION";
-pub const LET = "LET";
+pub const TokenType = enum {
+    ILLEGAL,
+    EOF,
+    IDENT,
+    INT,
+    ASSIGN,
+    EQ,
+    NOT_EQ,
+    PLUS,
+    MINUS,
+    BANG,
+    ASTERISK,
+    SLASH,
+    LT,
+    GT,
+    COMMA,
+    SEMICOLON,
+    LPAREN,
+    RPAREN,
+    LBRACE,
+    RBRACE,
+    FUNCTION,
+    LET,
+
+    pub fn toString(token_type: TokenType) []const u8 {
+        return switch (token_type) {
+            .ILLEGAL => "ILLEGAL",
+            .EOF => "EOF",
+            .IDENT => "IDENT",
+            .INT => "INT",
+            .ASSIGN => "=",
+            .EQ => "==",
+            .NOT_EQ => "!=",
+            .PLUS => "+",
+            .MINUS => "-",
+            .BANG => "!",
+            .ASTERISK => "*",
+            .SLASH => "/",
+            .LT => "<",
+            .GT => ">",
+            .COMMA => ",",
+            .SEMICOLON => ";",
+            .LPAREN => "(",
+            .RPAREN => ")",
+            .LBRACE => "{",
+            .RBRACE => "}",
+            .FUNCTION => "FUNCTION",
+            .LET => "LET",
+        };
+    }
+};
 
 pub const Token = struct {
-    Type: []const u8,
+    Type: TokenType,
     Literal: []const u8,
 };
 
 pub const Keyword = struct {
     Value: []const u8,
-    TokenType: []const u8,
+    TokenType: TokenType,
 };
 
 pub const keywords = [_]Keyword{
-    Keyword{ .TokenType = FUNCTION, .Value = "func" },
-    Keyword{ .TokenType = LET, .Value = "let" },
+    Keyword{ .TokenType = TokenType.FUNCTION, .Value = "func" },
+    Keyword{ .TokenType = TokenType.LET, .Value = "let" },
 };
 
-pub fn lookUpIdentifier(identifier: []const u8) []const u8 {
+pub fn lookUpIdentifier(identifier: []const u8) TokenType {
     for (keywords) |keyword| {
         if (std.mem.eql(u8, keyword.Value, identifier)) {
             return keyword.TokenType;
         }
     }
-    return IDENT;
+    return TokenType.IDENT;
 }

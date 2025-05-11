@@ -1,7 +1,10 @@
 const std = @import("std");
 
 const token = @import("token");
+const parser = @import("parser");
+
 const Token = token.Token;
+const TokenType = token.TokenType;
 
 pub const Lexer = struct {
     input: []const u8,
@@ -23,58 +26,58 @@ pub const Lexer = struct {
             '=' => {
                 if (self.peakChar() == '=') {
                     self.readChar();
-                    next_token = newToken(token.EQ, "==");
+                    next_token = newToken(TokenType.EQ, "==");
                 } else {
-                    next_token = newToken(token.ASSIGN, &[_]u8{self.current_char});
+                    next_token = newToken(TokenType.ASSIGN, &[_]u8{self.current_char});
                 }
             },
             ';' => {
-                next_token = newToken(token.SEMICOLON, &[_]u8{self.current_char});
+                next_token = newToken(TokenType.SEMICOLON, &[_]u8{self.current_char});
             },
             '(' => {
-                next_token = newToken(token.LPAREN, &[_]u8{self.current_char});
+                next_token = newToken(TokenType.LPAREN, &[_]u8{self.current_char});
             },
             ')' => {
-                next_token = newToken(token.RPAREN, &[_]u8{self.current_char});
+                next_token = newToken(TokenType.RPAREN, &[_]u8{self.current_char});
             },
             ',' => {
-                next_token = newToken(token.COMMA, &[_]u8{self.current_char});
+                next_token = newToken(TokenType.COMMA, &[_]u8{self.current_char});
             },
             '!' => {
                 if (self.peakChar() == '=') {
                     self.readChar();
-                    next_token = newToken(token.NOT_EQ, "!=");
+                    next_token = newToken(TokenType.NOT_EQ, "!=");
                 } else {
-                    next_token = newToken(token.BANG, &[_]u8{self.current_char});
+                    next_token = newToken(TokenType.BANG, &[_]u8{self.current_char});
                 }
             },
             '{' => {
-                next_token = newToken(token.LBRACE, &[_]u8{self.current_char});
+                next_token = newToken(TokenType.LBRACE, &[_]u8{self.current_char});
             },
             '}' => {
-                next_token = newToken(token.RBRACE, &[_]u8{self.current_char});
+                next_token = newToken(TokenType.RBRACE, &[_]u8{self.current_char});
             },
             '+' => {
-                next_token = newToken(token.PLUS, &[_]u8{self.current_char});
+                next_token = newToken(TokenType.PLUS, &[_]u8{self.current_char});
             },
             '-' => {
-                next_token = newToken(token.MINUS, &[_]u8{self.current_char});
+                next_token = newToken(TokenType.MINUS, &[_]u8{self.current_char});
             },
             '/' => {
-                next_token = newToken(token.SLASH, &[_]u8{self.current_char});
+                next_token = newToken(TokenType.SLASH, &[_]u8{self.current_char});
             },
             '*' => {
-                next_token = newToken(token.ASTERISK, &[_]u8{self.current_char});
+                next_token = newToken(TokenType.ASTERISK, &[_]u8{self.current_char});
             },
             '<' => {
-                next_token = newToken(token.LT, &[_]u8{self.current_char});
+                next_token = newToken(TokenType.LT, &[_]u8{self.current_char});
             },
             '>' => {
-                next_token = newToken(token.GT, &[_]u8{self.current_char});
+                next_token = newToken(TokenType.GT, &[_]u8{self.current_char});
             },
 
             0 => {
-                next_token = newToken(token.EOF, "");
+                next_token = newToken(TokenType.EOF, "");
             },
             else => {
                 if (isLetter(self.current_char)) {
@@ -84,9 +87,9 @@ pub const Lexer = struct {
                     return next_token;
                 } else if (isDigit(self.current_char)) {
                     const literal: []const u8 = self.readNumber();
-                    return newToken(token.INT, literal);
+                    return newToken(TokenType.INT, literal);
                 } else {
-                    next_token = newToken(token.ILLEGAL, &[_]u8{self.current_char});
+                    next_token = newToken(TokenType.ILLEGAL, &[_]u8{self.current_char});
                 }
             },
         }
@@ -145,6 +148,6 @@ fn isDigit(ch: u8) bool {
     return ('0' <= ch and ch <= '9');
 }
 
-fn newToken(token_type: []const u8, current_char: []const u8) Token {
+fn newToken(token_type: TokenType, current_char: []const u8) Token {
     return Token{ .Type = token_type, .Literal = current_char };
 }

@@ -26,10 +26,11 @@ pub fn build(b: *std.Build) void {
 
     exe_mod.addImport("token", token_module);
     exe_mod.addImport("lexer", lexer_module);
-    exe_mod.addImport("parser", lexer_module);
+    exe_mod.addImport("parser", parser_module);
     exe_mod.addImport("ast", ast_module);
 
     lexer_module.addImport("token", token_module);
+    lexer_module.addImport("ast", ast_module);
 
     token_module.addImport("lexer", lexer_module);
 
@@ -96,6 +97,7 @@ pub fn build(b: *std.Build) void {
 
     ast_module_test.root_module.addImport("ast", ast_module);
     lexer_module_test.root_module.addImport("token", token_module);
+    lexer_module_test.root_module.addImport("parser", parser_module);
 
     parser_module_test.root_module.addImport("ast", ast_module);
     parser_module_test.root_module.addImport("token", token_module);
@@ -111,7 +113,8 @@ pub fn build(b: *std.Build) void {
         test_step.dependOn(&run_unit_test.step);
         test_step.dependOn(&lexer_module_test.step);
     } else if (std.mem.eql(u8, test_module, "parser")) {
-        const run_unit_test = b.addRunArtifact(lexer_module_test);
+        std.debug.print("Running parser tests", .{});
+        const run_unit_test = b.addRunArtifact(parser_module_test);
         test_step.dependOn(&run_unit_test.step);
         test_step.dependOn(&parser_module_test.step);
     } else {

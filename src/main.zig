@@ -1,5 +1,7 @@
 const std = @import("std");
+const parser = @import("parser");
 const lexer = @import("lexer");
+const ast = @import("ast");
 const token = @import("token");
 
 pub fn main() !void {
