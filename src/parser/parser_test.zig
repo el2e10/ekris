@@ -4,12 +4,43 @@ const parser = @import("parser.zig");
 const ast = @import("ast");
 const lexer = @import("lexer");
 
+test "return_one" {
+    const test_allocator = std.testing.allocator;
+    const input: []const u8 =
+        \\ return 10;
+        \\ return 83838;
+    ;
+
+    const lxr: *lexer.Lexer = try lexer.Lexer.New(test_allocator, input);
+    defer test_allocator.destroy(lxr);
+
+    const prsr: *parser.Parser = try parser.Parser.New(test_allocator, lxr);
+    defer prsr.deinit(test_allocator);
+
+    const program: *ast.Program = try prsr.ParseProgram(test_allocator);
+    defer program.deinit(ast.ReturnStatement, test_allocator);
+
+    try std.testing.expect(checkParserErrors(prsr));
+
+    if (program.*.statements.len != 2) {
+        std.debug.print("program doesn't contain 2 statements", .{});
+        return;
+    }
+
+    for (program.*.statements) |stmt| {
+        const return_statement: *ast.ReturnStatement = @ptrCast(@alignCast(stmt.ptr));
+        std.testing.expectEqualStrings(return_statement.*.token.toString(), "RETURN") catch {
+            std.debug.print("Expected {s} got {s}", .{ "RETURN", return_statement.*.token.toString() });
+        };
+    }
+}
+
 test "let_one" {
     const test_allocator = std.testing.allocator;
     const input: []const u8 =
-        \\ let x  5;
+        \\ let x = 5;
         \\ let y = 10;
-        \\ let foobar 83838;
+        \\ let foobar = 83838;
     ;
 
     const lxr: *lexer.Lexer = try lexer.Lexer.New(test_allocator, input);

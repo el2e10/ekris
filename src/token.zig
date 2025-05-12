@@ -23,6 +23,7 @@ pub const TokenType = enum {
     RBRACE,
     FUNCTION,
     LET,
+    RETURN,
 
     pub fn toString(token_type: TokenType) []const u8 {
         return switch (token_type) {
@@ -48,6 +49,7 @@ pub const TokenType = enum {
             .RBRACE => "}",
             .FUNCTION => "FUNCTION",
             .LET => "LET",
+            .RETURN => "RETURN",
         };
     }
 };
@@ -65,6 +67,7 @@ pub const Keyword = struct {
 pub const keywords = [_]Keyword{
     Keyword{ .TokenType = TokenType.FUNCTION, .Value = "func" },
     Keyword{ .TokenType = TokenType.LET, .Value = "let" },
+    Keyword{ .TokenType = TokenType.RETURN, .Value = "return" },
 };
 
 pub fn lookUpIdentifier(identifier: []const u8) TokenType {

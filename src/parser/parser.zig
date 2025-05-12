@@ -38,6 +38,7 @@ pub const Parser = struct {
     fn parseStatement(self: *Parser, allocator: std.mem.Allocator) !?ast.Statement {
         return switch (self.current_token.Type) {
             TokenType.LET => try self.parseLetStatement(allocator),
+            TokenType.RETURN => try self.parseReturnStatement(allocator),
             else => null,
         };
     }
@@ -58,6 +59,20 @@ pub const Parser = struct {
         const program: *ast.Program = try allocator.create(ast.Program);
         program.* = ast.Program{ .statements = statements };
         return program;
+    }
+
+    fn parseReturnStatement(self: *Parser, allocator: std.mem.Allocator) !?ast.Statement {
+        const return_token: TokenType = self.current_token.Type;
+
+        self.nextToken();
+
+        while (!self.*.currentTokenIs(TokenType.SEMICOLON)) {
+            self.nextToken();
+        }
+
+        const return_statement: *ast.ReturnStatement = try allocator.create(ast.ReturnStatement);
+        return_statement.* = ast.ReturnStatement{ .token = return_token, .expression = null };
+        return return_statement.createStatement();
     }
 
     fn parseLetStatement(self: *Parser, allocator: std.mem.Allocator) !?ast.Statement {

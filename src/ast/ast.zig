@@ -2,6 +2,15 @@ const std = @import("std");
 const token = @import("token");
 const TokenType = token.TokenType;
 
+pub const Node = struct {
+    ptr: *anyopaque,
+    tokenLiteralFn: *const fn (ptr: *anyopaque) []const u8,
+
+    pub fn tokenLiteral(self: Node) []const u8 {
+        return self.tokenLiteralFn(self.ptr);
+    }
+};
+
 const Expression = struct {
     ptr: *anyopaque,
     node: Node,
@@ -81,11 +90,28 @@ pub const LetStatement = struct {
     }
 };
 
-pub const Node = struct {
-    ptr: *anyopaque,
-    tokenLiteralFn: *const fn (ptr: *anyopaque) []const u8,
+pub const ReturnStatement = struct {
+    token: TokenType,
+    expression: ?Expression,
 
-    pub fn tokenLiteral(self: Node) []const u8 {
-        return self.tokenLiteralFn(self.ptr);
+    pub fn tokenLiteral(ptr: *anyopaque) []const u8 {
+        const self: *ReturnStatement = @ptrCast(@alignCast(ptr));
+        return self.token.toString();
+    }
+
+    fn createNode(self: *ReturnStatement) Node {
+        return Node{
+            .ptr = self,
+            .tokenLiteralFn = tokenLiteral,
+        };
+    }
+
+    pub fn createStatement(self: *ReturnStatement) Statement {
+        const node = self.createNode();
+        const statement = Statement{
+            .ptr = self,
+            .node = node,
+        };
+        return statement;
     }
 };
