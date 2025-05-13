@@ -63,6 +63,11 @@ test "let_one" {
 
     for (expectedIdentifier, 0..) |identifier, index| {
         const statement = program.*.statements[index];
+
+        const statement_str = try statement.string(test_allocator);
+        std.debug.print("{s}", .{statement_str});
+        defer test_allocator.free(statement_str);
+
         try testLetStatement(statement, identifier);
     }
 }

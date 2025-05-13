@@ -5,9 +5,14 @@ const TokenType = token.TokenType;
 pub const Node = struct {
     ptr: *anyopaque,
     tokenLiteralFn: *const fn (ptr: *anyopaque) []const u8,
+    stringFn: *const fn (ptr: *anyopaque, allocator: std.mem.Allocator) anyerror![]const u8,
 
     pub fn tokenLiteral(self: Node) []const u8 {
         return self.tokenLiteralFn(self.ptr);
+    }
+
+    pub fn string(self: Node, allocator: std.mem.Allocator) ![]const u8 {
+        return self.stringFn(self.ptr, allocator);
     }
 };
 
@@ -61,6 +66,10 @@ pub const Statement = struct {
     pub fn tokenLiteral(self: Statement) []const u8 {
         return self.node.tokenLiteral();
     }
+
+    pub fn string(self: Statement, allocator: std.mem.Allocator) ![]const u8 {
+        return self.node.string(allocator);
+    }
 };
 
 pub const LetStatement = struct {
@@ -73,10 +82,17 @@ pub const LetStatement = struct {
         return self.token.toString();
     }
 
+    pub fn string(ptr: *anyopaque, allocator: std.mem.Allocator) ![]const u8 {
+        const let_statement: *LetStatement = @ptrCast(@alignCast(ptr));
+        const statement_str: []const u8 = try std.fmt.allocPrint(allocator, "Let statement is {s} {s} = \n", .{ tokenLiteral(ptr), let_statement.name.value });
+        return statement_str;
+    }
+
     fn createNode(self: *LetStatement) Node {
         return Node{
             .ptr = self,
             .tokenLiteralFn = tokenLiteral,
+            .stringFn = string,
         };
     }
 
@@ -99,14 +115,54 @@ pub const ReturnStatement = struct {
         return self.token.toString();
     }
 
+    pub fn string(ptr: *anyopaque, allocator: std.mem.Allocator) ![]const u8 {
+        const statement_str: []const u8 = try std.fmt.allocPrint(allocator, "{s} ", .{tokenLiteral(ptr)});
+        return statement_str;
+    }
+
     fn createNode(self: *ReturnStatement) Node {
         return Node{
             .ptr = self,
             .tokenLiteralFn = tokenLiteral,
+            .stringFn = string,
         };
     }
 
     pub fn createStatement(self: *ReturnStatement) Statement {
+        const node = self.createNode();
+        const statement = Statement{
+            .ptr = self,
+            .node = node,
+        };
+        return statement;
+    }
+};
+
+// To handle expression like 4 + 3
+pub const ExpressionStatement = struct {
+    token: TokenType,
+    expression: ?Expression,
+
+    pub fn tokenLiteral(ptr: *anyopaque) []const u8 {
+        const self: *ExpressionStatement = @ptrCast(@alignCast(ptr));
+        return self.token.toString();
+    }
+
+    pub fn string(ptr: *anyopaque, allocator: std.mem.Allocator) ![]const u8 {
+        const expression_statement: *ExpressionStatement = @ptrCast(@alignCast(ptr));
+        const statement_str: []const u8 = try std.fmt.allocPrint(allocator, "{s} ", .{expression_statement.*.tokenLiteral(ptr)});
+        return statement_str;
+    }
+
+    fn createNode(self: *ExpressionStatement) Node {
+        return Node{
+            .ptr = self,
+            .tokenLiteralFn = tokenLiteral,
+            .stringFn = string,
+        };
+    }
+
+    pub fn createStatement(self: *ExpressionStatement) Statement {
         const node = self.createNode();
         const statement = Statement{
             .ptr = self,
