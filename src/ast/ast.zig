@@ -59,8 +59,8 @@ pub const Expression = struct {
     }
 
     pub fn deinit(ptr: *anyopaque, allocator: std.mem.Allocator) void {
-        const identifier: *Identifier = @ptrCast(@alignCast(ptr));
-        allocator.destroy(identifier);
+        const self: *Expression = @ptrCast(@alignCast(ptr));
+        self.node.deinit(allocator);
     }
 };
 
@@ -79,25 +79,26 @@ pub const Identifier = struct {
         return identifier_str;
     }
 
-    // fn createNode(self: *Identifier) Node {
-    //     return Node{
-    //         .ptr = self,
-    //         .stringFn = string,
-    //         .tokenLiteralFn = tokenLiteral,
-    //     };
-    // }
-    //
-    // pub fn createExpression(self: *Identifier) Expression {
-    //     const node: Node = createNode(self);
-    //     return Expression{
-    //         .ptr = self,
-    //         .node = node,
-    //     };
-    // }
+    fn createNode(self: *Identifier) Node {
+        return Node{ .ptr = self, .vtable = &NodeVTable{
+            .tokenLiteral = tokenLiteral,
+            .string = string,
+            .deinit = deinit,
+        } };
+    }
 
-    // pub fn deinit(ptr: *anyopaque, allocator: std.mem.Allocator) void {
-    //
-    // }
+    pub fn createExpression(self: *Identifier) Expression {
+        const node: Node = createNode(self);
+        return Expression{
+            .ptr = self,
+            .node = node,
+        };
+    }
+
+    pub fn deinit(ptr: *anyopaque, allocator: std.mem.Allocator) void {
+        const self: *Identifier = @ptrCast(@alignCast(ptr));
+        allocator.destroy(self);
+    }
 };
 
 pub const Statement = struct {
@@ -201,8 +202,9 @@ pub const ExpressionStatement = struct {
     pub fn deinit(ptr: *anyopaque, allocator: std.mem.Allocator) void {
         const self: *ExpressionStatement = @ptrCast(@alignCast(ptr));
         if (self.expression) |exp| {
-            exp.deinit(ptr, allocator);
+            exp.node.deinit(allocator);
         }
+        allocator.destroy(self);
     }
 
     pub fn tokenLiteral(ptr: *anyopaque) []const u8 {
@@ -218,8 +220,11 @@ pub const ExpressionStatement = struct {
     fn createNode(self: *ExpressionStatement) Node {
         return Node{
             .ptr = self,
-            .tokenLiteralFn = tokenLiteral,
-            .stringFn = string,
+            .vtable = &NodeVTable{
+                .tokenLiteral = tokenLiteral,
+                .string = string,
+                .deinit = deinit,
+            },
         };
     }
 
