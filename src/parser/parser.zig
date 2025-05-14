@@ -6,17 +6,31 @@ const lexer = @import("lexer");
 
 const TokenType = token.TokenType;
 
+const PRECEDENCE = enum(u8) {
+    LOWEST = 1,
+    EQUALS = 2,
+    LESSGREATER = 3,
+    SUM = 4,
+    PRODUCT = 5,
+    PREFIX = 6,
+    CALL = 7,
+};
+
 pub const Parser = struct {
     lexer: *lexer.Lexer,
     current_token: token.Token,
     peek_token: token.Token,
     errors: std.ArrayList([]const u8),
+    // prefix_parse_fns: std.AutoHashMap(token.TokenType, *const fn (ptr: *Parser, allocator: std.mem.Allocator) anyerror!ast.Expression),
 
     pub fn New(allocator: std.mem.Allocator, lxr: *lexer.Lexer) !*Parser {
         const parser = try allocator.create(Parser);
         const current_token: token.Token = lxr.NextToken();
         const peek_token: token.Token = lxr.NextToken();
         const errors = std.ArrayList([]const u8).init(allocator);
+
+        // var prefix_parse_fns = std.AutoHashMap(token.TokenType, *const fn (ptr: *Parser, allocator: std.mem.Allocator) anyerror!ast.Expression).init(allocator);
+        // try prefix_parse_fns.put(TokenType.IDENT, parseIdentifer);
 
         parser.* = Parser{ .lexer = lxr, .current_token = current_token, .peek_token = peek_token, .errors = errors };
         return parser;
@@ -39,6 +53,7 @@ pub const Parser = struct {
         return switch (self.current_token.Type) {
             TokenType.LET => try self.parseLetStatement(allocator),
             TokenType.RETURN => try self.parseReturnStatement(allocator),
+            // else => try self.parseExpressionStatement(allocator),
             else => null,
         };
     }
@@ -60,6 +75,36 @@ pub const Parser = struct {
         program.* = ast.Program{ .statements = statements };
         return program;
     }
+
+    // fn parseExpressionStatement(self: *Parser, allocator: std.mem.Allocator) !?ast.Statement {
+    //     const expression_token: TokenType = self.current_token.Type;
+    //     const expression: ?ast.Expression = try self.parseExpression(PRECEDENCE.LOWEST, allocator);
+    //
+    //     while (!self.*.currentTokenIs(TokenType.SEMICOLON)) {
+    //         self.nextToken();
+    //     }
+    //
+    //     const expression_statement: *ast.ExpressionStatement = try allocator.create(ast.ExpressionStatement);
+    //     expression_statement.* = ast.ExpressionStatement{ .token = expression_token, .expression = expression };
+    //
+    //     return expression_statement.createStatement();
+    // }
+
+    // fn parseExpression(self: *Parser, _: PRECEDENCE, allocator: std.mem.Allocator) !?ast.Expression {
+    //     const prefix_fn = self.prefix_parse_fns.get(self.*.current_token.Type);
+    //     if (prefix_fn == null) {
+    //         return null;
+    //     }
+    //     const leftExpression = prefix_fn.?(self, allocator);
+    //     return try leftExpression;
+    // }
+    //
+    // fn parseIdentifer(self: *Parser, allocator: std.mem.Allocator) !ast.Expression {
+    //     const identifier: *ast.Identifier = try allocator.create(ast.Identifier);
+    //     identifier.* = ast.Identifier{ .token = self.current_token.Type, .value = self.current_token.Literal };
+    //
+    //     return identifier.createExpression();
+    // }
 
     fn parseReturnStatement(self: *Parser, allocator: std.mem.Allocator) !?ast.Statement {
         const return_token: TokenType = self.current_token.Type;

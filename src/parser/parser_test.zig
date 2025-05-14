@@ -4,6 +4,28 @@ const parser = @import("parser.zig");
 const ast = @import("ast");
 const lexer = @import("lexer");
 
+// test "identifier_one" {
+//     const test_allocator = std.testing.allocator;
+//     const input: []const u8 =
+//         \\ foobar;
+//     ;
+//     const lxr: *lexer.Lexer = try lexer.Lexer.New(test_allocator, input);
+//     defer test_allocator.destroy(lxr);
+//
+//     const prsr: *parser.Parser = try parser.Parser.New(test_allocator, lxr);
+//     defer prsr.deinit(test_allocator);
+//
+//     const program: *ast.Program = try prsr.ParseProgram(test_allocator);
+//     defer program.deinit(ast.ExpressionStatement, test_allocator);
+//
+//     try std.testing.expect(checkParserErrors(prsr));
+//
+//     if (program.*.statements.len != 1) {
+//         std.debug.print("program doesn't contain 1 statements", .{});
+//         return;
+//     }
+// }
+
 test "return_one" {
     const test_allocator = std.testing.allocator;
     const input: []const u8 =
@@ -18,7 +40,7 @@ test "return_one" {
     defer prsr.deinit(test_allocator);
 
     const program: *ast.Program = try prsr.ParseProgram(test_allocator);
-    defer program.deinit(ast.ReturnStatement, test_allocator);
+    defer program.deinit(test_allocator);
 
     try std.testing.expect(checkParserErrors(prsr));
 
@@ -50,7 +72,7 @@ test "let_one" {
     defer prsr.deinit(test_allocator);
 
     const program: *ast.Program = try prsr.ParseProgram(test_allocator);
-    defer program.deinit(ast.LetStatement, test_allocator);
+    defer program.deinit(test_allocator);
 
     try std.testing.expect(checkParserErrors(prsr));
 
