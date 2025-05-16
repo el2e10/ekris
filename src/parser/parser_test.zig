@@ -34,6 +34,36 @@ test "identifier_one" {
     }
 }
 
+test "identifier_two" {
+    const test_allocator = std.testing.allocator;
+    const input: []const u8 =
+        \\ 5;
+    ;
+    const lxr: *lexer.Lexer = try lexer.Lexer.New(test_allocator, input);
+    defer test_allocator.destroy(lxr);
+
+    const prsr: *parser.Parser = try parser.Parser.New(test_allocator, lxr);
+    defer prsr.deinit(test_allocator);
+
+    const program: *ast.Program = try prsr.ParseProgram(test_allocator);
+    defer program.deinit(test_allocator);
+
+    try std.testing.expect(checkParserErrors(prsr));
+
+    if (program.*.statements.len != 1) {
+        std.debug.print("program doesn't contain 1 statements", .{});
+        return;
+    }
+
+    for (program.*.statements) |stmt| {
+        const expression_statement: *ast.ExpressionStatement = @ptrCast(@alignCast(stmt.ptr));
+        const integerLiteral: *ast.IntegerLiteral = @ptrCast(@alignCast(expression_statement.*.expression.?.ptr));
+        std.testing.expectEqual(integerLiteral.value, @as(i64, 5)) catch {
+            std.debug.print("Identifier failed! expected {d} got {d}", .{ 5, integerLiteral.value });
+        };
+    }
+}
+
 test "return_one" {
     const test_allocator = std.testing.allocator;
     const input: []const u8 =

@@ -21,7 +21,7 @@ pub const Parser = struct {
     current_token: token.Token,
     peek_token: token.Token,
     errors: std.ArrayList([]const u8),
-    prefix_parse_fns: std.AutoHashMap(token.TokenType, *const fn (ptr: *Parser, allocator: std.mem.Allocator) anyerror!ast.Expression),
+    prefix_parse_fns: std.AutoHashMap(token.TokenType, *const fn (ptr: *Parser, allocator: std.mem.Allocator) anyerror!?ast.Expression),
 
     pub fn New(allocator: std.mem.Allocator, lxr: *lexer.Lexer) !*Parser {
         const parser = try allocator.create(Parser);
@@ -29,8 +29,9 @@ pub const Parser = struct {
         const peek_token: token.Token = lxr.NextToken();
         const errors = std.ArrayList([]const u8).init(allocator);
 
-        var prefix_parse_fns = std.AutoHashMap(token.TokenType, *const fn (ptr: *Parser, allocator: std.mem.Allocator) anyerror!ast.Expression).init(allocator);
+        var prefix_parse_fns = std.AutoHashMap(token.TokenType, *const fn (ptr: *Parser, allocator: std.mem.Allocator) anyerror!?ast.Expression).init(allocator);
         try prefix_parse_fns.put(TokenType.IDENT, parseIdentifer);
+        try prefix_parse_fns.put(TokenType.INT, parseIntegerLiteral);
 
         parser.* = Parser{ .lexer = lxr, .current_token = current_token, .peek_token = peek_token, .errors = errors, .prefix_parse_fns = prefix_parse_fns };
         return parser;
@@ -99,7 +100,18 @@ pub const Parser = struct {
         return try leftExpression;
     }
 
-    fn parseIdentifer(self: *Parser, allocator: std.mem.Allocator) !ast.Expression {
+    fn parseIntegerLiteral(self: *Parser, allocator: std.mem.Allocator) !?ast.Expression {
+        const intValue: i64 = std.fmt.parseInt(i64, self.*.current_token.Literal, 10) catch {
+            std.debug.print("Cannot convert {s} to integer", .{self.*.current_token.Literal});
+            return null;
+        };
+        const integerLiteral: *ast.IntegerLiteral = try allocator.create(ast.IntegerLiteral);
+        integerLiteral.* = ast.IntegerLiteral{ .token = self.current_token.Type, .value = intValue };
+
+        return integerLiteral.createExpression();
+    }
+
+    fn parseIdentifer(self: *Parser, allocator: std.mem.Allocator) !?ast.Expression {
         const identifier: *ast.Identifier = try allocator.create(ast.Identifier);
         identifier.* = ast.Identifier{ .token = self.current_token.Type, .value = self.current_token.Literal };
 

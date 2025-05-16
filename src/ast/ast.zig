@@ -101,6 +101,43 @@ pub const Identifier = struct {
     }
 };
 
+pub const IntegerLiteral = struct {
+    token: TokenType,
+    value: i64,
+
+    pub fn tokenLiteral(ptr: *anyopaque) []const u8 {
+        const self: *IntegerLiteral = @ptrCast(@alignCast(ptr));
+        return self.token.toString();
+    }
+
+    pub fn string(ptr: *anyopaque, allocator: std.mem.Allocator) ![]const u8 {
+        const self: *IntegerLiteral = @ptrCast(@alignCast(ptr));
+        const identifier_str: []const u8 = try std.fmt.allocPrint(allocator, "{s} {d}", .{ tokenLiteral(ptr), self.value });
+        return identifier_str;
+    }
+
+    pub fn deinit(ptr: *anyopaque, allocator: std.mem.Allocator) void {
+        const self: *IntegerLiteral = @ptrCast(@alignCast(ptr));
+        allocator.destroy(self);
+    }
+
+    fn createNode(self: *IntegerLiteral) Node {
+        return Node{ .ptr = self, .vtable = &NodeVTable{
+            .tokenLiteral = tokenLiteral,
+            .string = string,
+            .deinit = deinit,
+        } };
+    }
+
+    pub fn createExpression(self: *IntegerLiteral) Expression {
+        const node: Node = createNode(self);
+        return Expression{
+            .ptr = self,
+            .node = node,
+        };
+    }
+};
+
 pub const Statement = struct {
     ptr: *anyopaque,
     node: Node,
