@@ -25,6 +25,23 @@ pub const Node = struct {
     }
 };
 
+pub const Statement = struct {
+    ptr: *anyopaque,
+    node: Node,
+
+    pub fn tokenLiteral(self: Statement) []const u8 {
+        return self.node.tokenLiteral();
+    }
+
+    pub fn string(self: Statement, allocator: std.mem.Allocator) ![]const u8 {
+        return self.node.string(allocator);
+    }
+
+    pub fn deinit(self: Statement, allocator: std.mem.Allocator) void {
+        self.node.deinit(allocator);
+    }
+};
+
 pub const Program = struct {
     statements: []Statement,
 
@@ -58,9 +75,54 @@ pub const Expression = struct {
         return self.node.string(allocator);
     }
 
-    pub fn deinit(ptr: *anyopaque, allocator: std.mem.Allocator) void {
-        const self: *Expression = @ptrCast(@alignCast(ptr));
+    pub fn deinit(self: Expression, allocator: std.mem.Allocator) void {
         self.node.deinit(allocator);
+    }
+};
+
+pub const PrefixExpression = struct {
+    token: TokenType,
+    operator: []const u8,
+    right_expression: ?Expression,
+
+    pub fn tokenLiteral(ptr: *anyopaque) []const u8 {
+        const self: *PrefixExpression = @ptrCast(@alignCast(ptr));
+        return self.*.token.toString();
+    }
+
+    pub fn string(ptr: *anyopaque, allocator: std.mem.Allocator) ![]const u8 {
+        var right_str: []const u8 = "";
+        const self: *PrefixExpression = @ptrCast(@alignCast(ptr));
+        if (self.*.right_expression) |right_expr| {
+            right_str = try right_expr.string(allocator);
+        }
+        const str: []const u8 = try std.fmt.allocPrint(allocator, "({s} {s})", .{ self.*.token.toString(), right_str });
+        defer allocator.free(right_str);
+        return str;
+    }
+
+    pub fn deinit(ptr: *anyopaque, allocator: std.mem.Allocator) void {
+        const self: *PrefixExpression = @ptrCast(@alignCast(ptr));
+        if (self.*.right_expression) |expr| {
+            allocator.destroy(self);
+            expr.deinit(allocator);
+        }
+    }
+
+    fn createNode(self: *PrefixExpression) Node {
+        return Node{ .ptr = self, .vtable = &NodeVTable{
+            .tokenLiteral = tokenLiteral,
+            .string = string,
+            .deinit = deinit,
+        } };
+    }
+
+    pub fn createExpression(self: *PrefixExpression) Expression {
+        const node: Node = createNode(self);
+        return Expression{
+            .ptr = self,
+            .node = node,
+        };
     }
 };
 
@@ -75,8 +137,13 @@ pub const Identifier = struct {
 
     pub fn string(ptr: *anyopaque, allocator: std.mem.Allocator) ![]const u8 {
         const self: *Identifier = @ptrCast(@alignCast(ptr));
-        const identifier_str: []const u8 = try std.fmt.allocPrint(allocator, "{s} {s}", .{ tokenLiteral(ptr), self.value });
+        const identifier_str: []const u8 = try std.fmt.allocPrint(allocator, "{s}", .{self.value});
         return identifier_str;
+    }
+
+    pub fn deinit(ptr: *anyopaque, allocator: std.mem.Allocator) void {
+        const self: *Identifier = @ptrCast(@alignCast(ptr));
+        allocator.destroy(self);
     }
 
     fn createNode(self: *Identifier) Node {
@@ -94,11 +161,6 @@ pub const Identifier = struct {
             .node = node,
         };
     }
-
-    pub fn deinit(ptr: *anyopaque, allocator: std.mem.Allocator) void {
-        const self: *Identifier = @ptrCast(@alignCast(ptr));
-        allocator.destroy(self);
-    }
 };
 
 pub const IntegerLiteral = struct {
@@ -112,7 +174,7 @@ pub const IntegerLiteral = struct {
 
     pub fn string(ptr: *anyopaque, allocator: std.mem.Allocator) ![]const u8 {
         const self: *IntegerLiteral = @ptrCast(@alignCast(ptr));
-        const identifier_str: []const u8 = try std.fmt.allocPrint(allocator, "{s} {d}", .{ tokenLiteral(ptr), self.value });
+        const identifier_str: []const u8 = try std.fmt.allocPrint(allocator, "{d}", .{self.value});
         return identifier_str;
     }
 
@@ -135,23 +197,6 @@ pub const IntegerLiteral = struct {
             .ptr = self,
             .node = node,
         };
-    }
-};
-
-pub const Statement = struct {
-    ptr: *anyopaque,
-    node: Node,
-
-    pub fn tokenLiteral(self: Statement) []const u8 {
-        return self.node.tokenLiteral();
-    }
-
-    pub fn string(self: Statement, allocator: std.mem.Allocator) ![]const u8 {
-        return self.node.string(allocator);
-    }
-
-    pub fn deinit(self: Statement, allocator: std.mem.Allocator) void {
-        self.node.deinit(allocator);
     }
 };
 
@@ -250,7 +295,13 @@ pub const ExpressionStatement = struct {
     }
 
     pub fn string(ptr: *anyopaque, allocator: std.mem.Allocator) ![]const u8 {
-        const statement_str: []const u8 = try std.fmt.allocPrint(allocator, "{s} ", .{tokenLiteral(ptr)});
+        const self: *ExpressionStatement = @ptrCast(@alignCast(ptr));
+        var expression_str: []const u8 = "";
+        if (self.*.expression) |expr| {
+            expression_str = try expr.string(allocator);
+        }
+        defer allocator.free(expression_str);
+        const statement_str: []const u8 = try std.fmt.allocPrint(allocator, "{s}", .{expression_str});
         return statement_str;
     }
 

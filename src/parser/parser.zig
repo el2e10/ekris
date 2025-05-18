@@ -6,7 +6,7 @@ const lexer = @import("lexer");
 
 const TokenType = token.TokenType;
 
-const PRECEDENCE = enum(u8) {
+const Precedence = enum(u8) {
     LOWEST = 1,
     EQUALS = 2,
     LESSGREATER = 3,
@@ -32,6 +32,8 @@ pub const Parser = struct {
         var prefix_parse_fns = std.AutoHashMap(token.TokenType, *const fn (ptr: *Parser, allocator: std.mem.Allocator) anyerror!?ast.Expression).init(allocator);
         try prefix_parse_fns.put(TokenType.IDENT, parseIdentifer);
         try prefix_parse_fns.put(TokenType.INT, parseIntegerLiteral);
+        try prefix_parse_fns.put(TokenType.MINUS, parsePrefixExpression);
+        try prefix_parse_fns.put(TokenType.BANG, parsePrefixExpression);
 
         parser.* = Parser{ .lexer = lxr, .current_token = current_token, .peek_token = peek_token, .errors = errors, .prefix_parse_fns = prefix_parse_fns };
         return parser;
@@ -79,7 +81,7 @@ pub const Parser = struct {
 
     fn parseExpressionStatement(self: *Parser, allocator: std.mem.Allocator) !?ast.Statement {
         const expression_token: TokenType = self.current_token.Type;
-        const expression: ?ast.Expression = try self.parseExpression(PRECEDENCE.LOWEST, allocator);
+        const expression: ?ast.Expression = try self.parseExpression(Precedence.LOWEST, allocator);
 
         while (!self.*.currentTokenIs(TokenType.SEMICOLON)) {
             self.nextToken();
@@ -91,13 +93,29 @@ pub const Parser = struct {
         return expression_statement.createStatement();
     }
 
-    fn parseExpression(self: *Parser, _: PRECEDENCE, allocator: std.mem.Allocator) !?ast.Expression {
+    fn parseExpression(self: *Parser, _: Precedence, allocator: std.mem.Allocator) !?ast.Expression {
         const prefix_fn = self.prefix_parse_fns.get(self.*.current_token.Type);
         if (prefix_fn == null) {
+            try self.noPrefixParserFnError(self.*.current_token.Type, allocator);
             return null;
         }
         const leftExpression = prefix_fn.?(self, allocator);
         return try leftExpression;
+    }
+
+    fn parsePrefixExpression(self: *Parser, allocator: std.mem.Allocator) !?ast.Expression {
+        const prefix_token: TokenType = self.*.current_token.Type;
+        const prefix_operator: []const u8 = self.*.current_token.Literal;
+
+        self.nextToken();
+
+        const expression: ?ast.Expression = try self.parseExpression(Precedence.PREFIX, allocator);
+        if (expression) |expr| {
+            const prefix_expression: *ast.PrefixExpression = try allocator.create(ast.PrefixExpression);
+            prefix_expression.* = ast.PrefixExpression{ .token = prefix_token, .operator = prefix_operator, .right_expression = expr };
+            return prefix_expression.createExpression();
+        }
+        return null;
     }
 
     fn parseIntegerLiteral(self: *Parser, allocator: std.mem.Allocator) !?ast.Expression {
@@ -180,5 +198,10 @@ pub const Parser = struct {
             };
             return false;
         }
+    }
+
+    fn noPrefixParserFnError(self: *Parser, t: TokenType, allocator: std.mem.Allocator) !void {
+        const msg: []const u8 = try std.fmt.allocPrint(allocator, "no prefix parse function for {any} found", .{t});
+        try self.errors.append(msg);
     }
 };

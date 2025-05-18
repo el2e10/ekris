@@ -4,6 +4,52 @@ const parser = @import("parser.zig");
 const ast = @import("ast");
 const lexer = @import("lexer");
 
+test "prefix_expr" {
+    const PrefixTest = struct {
+        input: []const u8,
+        operator: []const u8,
+        integer_value: i64,
+    };
+
+    const prefix_tests: [2]PrefixTest = [2]PrefixTest{ .{ .input = "!5;", .operator = "!", .integer_value = 5 }, .{ .input = "-5;", .operator = "-", .integer_value = 5 } };
+
+    const test_allocator = std.testing.allocator;
+
+    for (prefix_tests) |prefix_test| {
+        const lxr: *lexer.Lexer = try lexer.Lexer.New(test_allocator, prefix_test.input);
+        defer test_allocator.destroy(lxr);
+
+        const prsr: *parser.Parser = try parser.Parser.New(test_allocator, lxr);
+        defer prsr.deinit(test_allocator);
+
+        const program: *ast.Program = try prsr.ParseProgram(test_allocator);
+        defer program.deinit(test_allocator);
+
+        try std.testing.expect(checkParserErrors(prsr));
+
+        if (program.*.statements.len != 1) {
+            std.debug.print("program doesn't contain 1 statements", .{});
+            return;
+        }
+
+        for (program.*.statements) |stmt| {
+            const expr_stmt: *ast.ExpressionStatement = @ptrCast(@alignCast(stmt.node.ptr));
+
+            if (expr_stmt.expression == null) {
+                std.debug.print("The expression statement was null\n", .{});
+            }
+            const expr: ast.Expression = expr_stmt.expression.?;
+
+            const prefix_expression: *ast.PrefixExpression = @ptrCast(@alignCast(expr.ptr));
+            try std.testing.expectEqualStrings(prefix_expression.token.toString(), prefix_test.operator);
+
+            const int_expression = prefix_expression.*.right_expression orelse return;
+
+            try testIntegerLiteral(int_expression, prefix_test.integer_value);
+        }
+    }
+}
+
 test "identifier_one" {
     const test_allocator = std.testing.allocator;
     const input: []const u8 =
@@ -125,7 +171,6 @@ test "let_one" {
         const statement = program.*.statements[index];
 
         const statement_str = try statement.string(test_allocator);
-        std.debug.print("{s}", .{statement_str});
         defer test_allocator.free(statement_str);
 
         try testLetStatement(statement, identifier);
@@ -158,4 +203,13 @@ fn checkParserErrors(prsr: *parser.Parser) bool {
     }
 
     return false;
+}
+
+fn testIntegerLiteral(expression: ast.Expression, value: i64) !void {
+    const int_expression: *ast.IntegerLiteral = @ptrCast(@alignCast(expression.ptr));
+
+    std.testing.expectEqual(int_expression.value, value) catch |err| {
+        std.debug.print("error occured {any}", .{err});
+        return err;
+    };
 }
