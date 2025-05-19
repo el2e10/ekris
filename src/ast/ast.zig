@@ -80,6 +80,64 @@ pub const Expression = struct {
     }
 };
 
+pub const InfixExpression = struct {
+    token: TokenType,
+    operator: []const u8,
+    left_expression: ?Expression,
+    right_expression: ?Expression,
+
+    pub fn tokenLiteral(ptr: *anyopaque) []const u8 {
+        const self: *InfixExpression = @ptrCast(@alignCast(ptr));
+        return self.*.token.toString();
+    }
+
+    pub fn string(ptr: *anyopaque, allocator: std.mem.Allocator) ![]const u8 {
+        const self: *InfixExpression = @ptrCast(@alignCast(ptr));
+        var left_expression: []const u8 = "";
+        var right_expression: []const u8 = "";
+
+        if (self.*.left_expression) |expr| {
+            left_expression = try expr.string(allocator);
+        }
+        if (self.*.right_expression) |expr| {
+            right_expression = try expr.string(allocator);
+        }
+
+        defer allocator.free(left_expression);
+        defer allocator.free(right_expression);
+
+        return try std.fmt.allocPrint(allocator, "({s} {s} {s})", .{ left_expression, self.*.operator, right_expression });
+    }
+
+    pub fn deinit(ptr: *anyopaque, allocator: std.mem.Allocator) void {
+        const self: *InfixExpression = @ptrCast(@alignCast(ptr));
+        if (self.*.right_expression) |expr| {
+            expr.deinit(allocator);
+        }
+        if (self.*.left_expression) |expr| {
+            expr.deinit(allocator);
+        }
+        allocator.free(self.*.operator);
+        allocator.destroy(self);
+    }
+
+    fn createNode(self: *InfixExpression) Node {
+        return Node{ .ptr = self, .vtable = &NodeVTable{
+            .tokenLiteral = tokenLiteral,
+            .string = string,
+            .deinit = deinit,
+        } };
+    }
+
+    pub fn createExpression(self: *InfixExpression) Expression {
+        const node: Node = createNode(self);
+        return Expression{
+            .ptr = self,
+            .node = node,
+        };
+    }
+};
+
 pub const PrefixExpression = struct {
     token: TokenType,
     operator: []const u8,
@@ -104,6 +162,7 @@ pub const PrefixExpression = struct {
     pub fn deinit(ptr: *anyopaque, allocator: std.mem.Allocator) void {
         const self: *PrefixExpression = @ptrCast(@alignCast(ptr));
         if (self.*.right_expression) |expr| {
+            allocator.free(self.*.operator);
             allocator.destroy(self);
             expr.deinit(allocator);
         }

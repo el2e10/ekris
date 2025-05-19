@@ -4,6 +4,55 @@ const parser = @import("parser.zig");
 const ast = @import("ast");
 const lexer = @import("lexer");
 
+test "infix_expr" {
+    const InfixTest = struct {
+        input: []const u8,
+        operator: []const u8,
+        left_value: i64,
+        right_value: i64,
+    };
+
+    const infix_tests: [2]InfixTest = [2]InfixTest{ .{ .input = "15 + 38;", .operator = "+", .left_value = 15, .right_value = 38 }, .{ .input = "5-9;", .operator = "-", .left_value = 5, .right_value = 9 } };
+
+    const test_allocator = std.testing.allocator;
+
+    for (infix_tests) |infix_test| {
+        const lxr: *lexer.Lexer = try lexer.Lexer.New(test_allocator, infix_test.input);
+        defer test_allocator.destroy(lxr);
+
+        const prsr: *parser.Parser = try parser.Parser.New(test_allocator, lxr);
+        defer prsr.deinit(test_allocator);
+
+        const program: *ast.Program = try prsr.ParseProgram(test_allocator);
+        defer program.deinit(test_allocator);
+
+        try std.testing.expect(checkParserErrors(prsr));
+
+        if (program.*.statements.len != 1) {
+            std.debug.print("program doesn't contain 1 statements", .{});
+            return;
+        }
+
+        for (program.*.statements) |stmt| {
+            const expr_stmt: *ast.ExpressionStatement = @ptrCast(@alignCast(stmt.node.ptr));
+
+            if (expr_stmt.expression == null) {
+                std.debug.print("The exinssion statement was null\n", .{});
+            }
+            const expr: ast.Expression = expr_stmt.expression.?;
+
+            const infix_expression: *ast.InfixExpression = @ptrCast(@alignCast(expr.ptr));
+            try std.testing.expectEqualStrings(infix_expression.token.toString(), infix_test.operator);
+
+            const right_int_expression = infix_expression.*.right_expression orelse return;
+            const left_int_expression = infix_expression.*.left_expression orelse return;
+
+            try testIntegerLiteral(right_int_expression, infix_test.right_value);
+            try testIntegerLiteral(left_int_expression, infix_test.left_value);
+        }
+    }
+}
+
 test "prefix_expr" {
     const PrefixTest = struct {
         input: []const u8,
@@ -42,10 +91,6 @@ test "prefix_expr" {
 
             const prefix_expression: *ast.PrefixExpression = @ptrCast(@alignCast(expr.ptr));
             try std.testing.expectEqualStrings(prefix_expression.token.toString(), prefix_test.operator);
-
-            const int_expression = prefix_expression.*.right_expression orelse return;
-
-            try testIntegerLiteral(int_expression, prefix_test.integer_value);
         }
     }
 }

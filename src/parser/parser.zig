@@ -22,6 +22,8 @@ pub const Parser = struct {
     peek_token: token.Token,
     errors: std.ArrayList([]const u8),
     prefix_parse_fns: std.AutoHashMap(token.TokenType, *const fn (ptr: *Parser, allocator: std.mem.Allocator) anyerror!?ast.Expression),
+    infix_parse_fns: std.AutoHashMap(token.TokenType, *const fn (ptr: *Parser, left: ast.Expression, allocator: std.mem.Allocator) anyerror!?ast.Expression),
+    precedences: std.AutoHashMap(TokenType, Precedence),
 
     pub fn New(allocator: std.mem.Allocator, lxr: *lexer.Lexer) !*Parser {
         const parser = try allocator.create(Parser);
@@ -35,7 +37,27 @@ pub const Parser = struct {
         try prefix_parse_fns.put(TokenType.MINUS, parsePrefixExpression);
         try prefix_parse_fns.put(TokenType.BANG, parsePrefixExpression);
 
-        parser.* = Parser{ .lexer = lxr, .current_token = current_token, .peek_token = peek_token, .errors = errors, .prefix_parse_fns = prefix_parse_fns };
+        var infix_parse_fns = std.AutoHashMap(token.TokenType, *const fn (ptr: *Parser, left: ast.Expression, allocator: std.mem.Allocator) anyerror!?ast.Expression).init(allocator);
+        try infix_parse_fns.put(TokenType.PLUS, parseInfixExpression);
+        try infix_parse_fns.put(TokenType.MINUS, parseInfixExpression);
+        try infix_parse_fns.put(TokenType.SLASH, parseInfixExpression);
+        try infix_parse_fns.put(TokenType.ASTERISK, parseInfixExpression);
+        try infix_parse_fns.put(TokenType.EQ, parseInfixExpression);
+        try infix_parse_fns.put(TokenType.NOT_EQ, parseInfixExpression);
+        try infix_parse_fns.put(TokenType.LT, parseInfixExpression);
+        try infix_parse_fns.put(TokenType.GT, parseInfixExpression);
+
+        var precedences = std.AutoHashMap(TokenType, Precedence).init(allocator);
+        try precedences.put(TokenType.EQ, Precedence.EQUALS);
+        try precedences.put(TokenType.NOT_EQ, Precedence.EQUALS);
+        try precedences.put(TokenType.LT, Precedence.LESSGREATER);
+        try precedences.put(TokenType.GT, Precedence.LESSGREATER);
+        try precedences.put(TokenType.PLUS, Precedence.SUM);
+        try precedences.put(TokenType.MINUS, Precedence.SUM);
+        try precedences.put(TokenType.SLASH, Precedence.PRODUCT);
+        try precedences.put(TokenType.ASTERISK, Precedence.PRODUCT);
+
+        parser.* = Parser{ .lexer = lxr, .current_token = current_token, .peek_token = peek_token, .errors = errors, .prefix_parse_fns = prefix_parse_fns, .infix_parse_fns = infix_parse_fns, .precedences = precedences };
         return parser;
     }
 
@@ -45,6 +67,8 @@ pub const Parser = struct {
         }
         self.*.errors.deinit();
         self.*.prefix_parse_fns.deinit();
+        self.*.infix_parse_fns.deinit();
+        self.*.precedences.deinit();
         allocator.destroy(self);
     }
 
@@ -93,19 +117,49 @@ pub const Parser = struct {
         return expression_statement.createStatement();
     }
 
-    fn parseExpression(self: *Parser, _: Precedence, allocator: std.mem.Allocator) !?ast.Expression {
+    fn parseExpression(self: *Parser, precedence: Precedence, allocator: std.mem.Allocator) !?ast.Expression {
         const prefix_fn = self.prefix_parse_fns.get(self.*.current_token.Type);
         if (prefix_fn == null) {
             try self.noPrefixParserFnError(self.*.current_token.Type, allocator);
             return null;
         }
-        const leftExpression = prefix_fn.?(self, allocator);
-        return try leftExpression;
+        var leftExpression = try prefix_fn.?(self, allocator);
+        if (leftExpression == null) {
+            return null;
+        }
+
+        while (!self.*.peekTokenIs(TokenType.SEMICOLON) and @intFromEnum(precedence) < @intFromEnum(self.peekPrecedence())) {
+            const infix_fn = self.*.infix_parse_fns.get(self.*.peek_token.Type);
+            if (infix_fn == null) {
+                return leftExpression;
+            }
+            self.nextToken();
+            leftExpression = try infix_fn.?(self, leftExpression.?, allocator);
+        }
+
+        return leftExpression;
+    }
+
+    fn parseInfixExpression(self: *Parser, left: ast.Expression, allocator: std.mem.Allocator) !?ast.Expression {
+        const operator: []const u8 = try allocator.dupe(u8, self.*.current_token.Literal);
+        var expression: ast.InfixExpression = ast.InfixExpression{ .token = self.*.current_token.Type, .operator = operator, .left_expression = left, .right_expression = undefined };
+
+        const precedence = self.currentPrecedence();
+        self.nextToken();
+        const right: ?ast.Expression = try self.parseExpression(precedence, allocator);
+        if (right) |expr| {
+            expression.right_expression = expr;
+            const infix_expression: *ast.InfixExpression = try allocator.create(ast.InfixExpression);
+            infix_expression.* = expression;
+            return infix_expression.createExpression();
+        }
+
+        return null;
     }
 
     fn parsePrefixExpression(self: *Parser, allocator: std.mem.Allocator) !?ast.Expression {
         const prefix_token: TokenType = self.*.current_token.Type;
-        const prefix_operator: []const u8 = self.*.current_token.Literal;
+        const prefix_operator: []const u8 = try allocator.dupe(u8, self.*.current_token.Literal);
 
         self.nextToken();
 
@@ -186,6 +240,14 @@ pub const Parser = struct {
         // defer allocator.free(err_msg);
 
         try self.errors.append(err_msg);
+    }
+
+    fn peekPrecedence(self: *Parser) Precedence {
+        return self.*.precedences.get(self.*.peek_token.Type) orelse Precedence.LOWEST;
+    }
+
+    fn currentPrecedence(self: *Parser) Precedence {
+        return self.*.precedences.get(self.*.current_token.Type) orelse Precedence.LOWEST;
     }
 
     fn expectPeek(self: *Parser, token_type: TokenType, allocator: std.mem.Allocator) bool {
