@@ -27,8 +27,8 @@ pub const Parser = struct {
 
     pub fn New(allocator: std.mem.Allocator, lxr: *lexer.Lexer) !*Parser {
         const parser = try allocator.create(Parser);
-        const current_token: token.Token = lxr.NextToken();
-        const peek_token: token.Token = lxr.NextToken();
+        const current_token: token.Token = try lxr.NextToken(allocator);
+        const peek_token: token.Token = try lxr.NextToken(allocator);
         const errors = std.ArrayList([]const u8).init(allocator);
 
         var prefix_parse_fns = std.AutoHashMap(token.TokenType, *const fn (ptr: *Parser, allocator: std.mem.Allocator) anyerror!?ast.Expression).init(allocator);
@@ -72,9 +72,10 @@ pub const Parser = struct {
         allocator.destroy(self);
     }
 
-    fn nextToken(self: *Parser) void {
+    fn nextToken(self: *Parser, allocator: std.mem.Allocator) !void {
+        allocator.free(self.*.current_token.Literal);
         self.current_token = self.peek_token;
-        self.peek_token = self.lexer.NextToken();
+        self.peek_token = try self.lexer.NextToken(allocator);
     }
 
     fn parseStatement(self: *Parser, allocator: std.mem.Allocator) !?ast.Statement {
@@ -93,7 +94,7 @@ pub const Parser = struct {
             if (parseStmt) |stmt| {
                 try statementsArrayList.append(stmt);
             }
-            self.nextToken();
+            try self.nextToken(allocator);
         }
 
         const statements = try statementsArrayList.toOwnedSlice();
@@ -108,7 +109,7 @@ pub const Parser = struct {
         const expression: ?ast.Expression = try self.parseExpression(Precedence.LOWEST, allocator);
 
         while (!self.*.currentTokenIs(TokenType.SEMICOLON)) {
-            self.nextToken();
+            try self.nextToken(allocator);
         }
 
         const expression_statement: *ast.ExpressionStatement = try allocator.create(ast.ExpressionStatement);
@@ -133,7 +134,7 @@ pub const Parser = struct {
             if (infix_fn == null) {
                 return leftExpression;
             }
-            self.nextToken();
+            try self.nextToken(allocator);
             leftExpression = try infix_fn.?(self, leftExpression.?, allocator);
         }
 
@@ -141,15 +142,15 @@ pub const Parser = struct {
     }
 
     fn parseInfixExpression(self: *Parser, left: ast.Expression, allocator: std.mem.Allocator) !?ast.Expression {
+        const infix_token: TokenType = self.*.current_token.Type;
         const operator: []const u8 = try allocator.dupe(u8, self.*.current_token.Literal);
-        var expression: ast.InfixExpression = ast.InfixExpression{ .token = self.*.current_token.Type, .operator = operator, .left_expression = left, .right_expression = undefined };
 
         const precedence = self.currentPrecedence();
-        self.nextToken();
+        try self.nextToken(allocator);
         const right: ?ast.Expression = try self.parseExpression(precedence, allocator);
         if (right) |expr| {
-            expression.right_expression = expr;
             const infix_expression: *ast.InfixExpression = try allocator.create(ast.InfixExpression);
+            const expression: ast.InfixExpression = ast.InfixExpression{ .token = infix_token, .operator = operator, .left_expression = left, .right_expression = expr };
             infix_expression.* = expression;
             return infix_expression.createExpression();
         }
@@ -161,7 +162,7 @@ pub const Parser = struct {
         const prefix_token: TokenType = self.*.current_token.Type;
         const prefix_operator: []const u8 = try allocator.dupe(u8, self.*.current_token.Literal);
 
-        self.nextToken();
+        try self.nextToken(allocator);
 
         const expression: ?ast.Expression = try self.parseExpression(Precedence.PREFIX, allocator);
         if (expression) |expr| {
@@ -185,7 +186,8 @@ pub const Parser = struct {
 
     fn parseIdentifer(self: *Parser, allocator: std.mem.Allocator) !?ast.Expression {
         const identifier: *ast.Identifier = try allocator.create(ast.Identifier);
-        identifier.* = ast.Identifier{ .token = self.current_token.Type, .value = self.current_token.Literal };
+        const literal: []const u8 = try allocator.dupe(u8, self.*.current_token.Literal);
+        identifier.* = ast.Identifier{ .token = self.current_token.Type, .value = literal };
 
         return identifier.createExpression();
     }
@@ -193,10 +195,10 @@ pub const Parser = struct {
     fn parseReturnStatement(self: *Parser, allocator: std.mem.Allocator) !?ast.Statement {
         const return_token: TokenType = self.current_token.Type;
 
-        self.nextToken();
+        try self.nextToken(allocator);
 
         while (!self.*.currentTokenIs(TokenType.SEMICOLON)) {
-            self.nextToken();
+            try self.nextToken(allocator);
         }
 
         const return_statement: *ast.ReturnStatement = try allocator.create(ast.ReturnStatement);
@@ -211,7 +213,7 @@ pub const Parser = struct {
             return null;
         }
 
-        const variable_name: []const u8 = self.*.current_token.Literal;
+        const variable_name: []const u8 = try allocator.dupe(u8, self.*.current_token.Literal);
         const identifier: ast.Identifier = ast.Identifier{ .token = TokenType.IDENT, .value = variable_name };
 
         if (!self.*.expectPeek(TokenType.ASSIGN, allocator)) {
@@ -219,7 +221,7 @@ pub const Parser = struct {
         }
 
         while (!self.*.currentTokenIs(TokenType.SEMICOLON)) {
-            self.nextToken();
+            try self.nextToken(allocator);
         }
 
         const let_statement: *ast.LetStatement = try allocator.create(ast.LetStatement);
@@ -252,7 +254,9 @@ pub const Parser = struct {
 
     fn expectPeek(self: *Parser, token_type: TokenType, allocator: std.mem.Allocator) bool {
         if (self.*.peekTokenIs(token_type)) {
-            self.*.nextToken();
+            self.*.nextToken(allocator) catch {
+                return false;
+            };
             return true;
         } else {
             self.peekErrors(token_type, allocator) catch {

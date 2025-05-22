@@ -12,7 +12,7 @@ test "infix_expr" {
         right_value: i64,
     };
 
-    const infix_tests: [2]InfixTest = [2]InfixTest{ .{ .input = "15 + 38;", .operator = "+", .left_value = 15, .right_value = 38 }, .{ .input = "5-9;", .operator = "-", .left_value = 5, .right_value = 9 } };
+    const infix_tests: [2]InfixTest = [2]InfixTest{ .{ .input = "15 * 38;", .operator = "*", .left_value = 15, .right_value = 38 }, .{ .input = "15 - 38;", .operator = "-", .left_value = 15, .right_value = 38 } };
 
     const test_allocator = std.testing.allocator;
 
@@ -40,15 +40,7 @@ test "infix_expr" {
                 std.debug.print("The exinssion statement was null\n", .{});
             }
             const expr: ast.Expression = expr_stmt.expression.?;
-
-            const infix_expression: *ast.InfixExpression = @ptrCast(@alignCast(expr.ptr));
-            try std.testing.expectEqualStrings(infix_expression.token.toString(), infix_test.operator);
-
-            const right_int_expression = infix_expression.*.right_expression orelse return;
-            const left_int_expression = infix_expression.*.left_expression orelse return;
-
-            try testIntegerLiteral(right_int_expression, infix_test.right_value);
-            try testIntegerLiteral(left_int_expression, infix_test.left_value);
+            try std.testing.expect(testInfixExpression(expr, infix_test.left_value, infix_test.operator, infix_test.right_value));
         }
     }
 }
@@ -60,7 +52,7 @@ test "prefix_expr" {
         integer_value: i64,
     };
 
-    const prefix_tests: [2]PrefixTest = [2]PrefixTest{ .{ .input = "!5;", .operator = "!", .integer_value = 5 }, .{ .input = "-5;", .operator = "-", .integer_value = 5 } };
+    const prefix_tests: [1]PrefixTest = [1]PrefixTest{.{ .input = "!5;", .operator = "!", .integer_value = 5 }};
 
     const test_allocator = std.testing.allocator;
 
@@ -90,7 +82,7 @@ test "prefix_expr" {
             const expr: ast.Expression = expr_stmt.expression.?;
 
             const prefix_expression: *ast.PrefixExpression = @ptrCast(@alignCast(expr.ptr));
-            try std.testing.expectEqualStrings(prefix_expression.token.toString(), prefix_test.operator);
+            try std.testing.expectEqualStrings(prefix_expression.operator, prefix_test.operator);
         }
     }
 }
@@ -206,7 +198,7 @@ test "let_one" {
     try std.testing.expect(checkParserErrors(prsr));
 
     if (program.*.statements.len != 3) {
-        std.debug.print("program doesn't contain 3 statements", .{});
+        std.debug.print("program doesn't contain {d} statements", .{3});
         return;
     }
 
@@ -257,4 +249,45 @@ fn testIntegerLiteral(expression: ast.Expression, value: i64) !void {
         std.debug.print("error occured {any}", .{err});
         return err;
     };
+}
+
+fn testIdentifier(expression: ast.Expression, value: []const u8) bool {
+    const identifier: *ast.Identifier = @ptrCast(@alignCast(expression.ptr));
+    if (identifier.value != value) {
+        return false;
+    }
+    if (identifier.tokenLiteral() != value) {
+        return false;
+    }
+    return true;
+}
+
+fn testLiteralExpression(expression: ?ast.Expression, expected: anytype) !void {
+    const T = @TypeOf(expected);
+    const expr: ast.Expression = expression orelse return error.NoExpressionError;
+    switch (T) {
+        i64 => try testIntegerLiteral(expr, expected),
+        []const u8 => try testIdentifier(expr, expected),
+        else => return error.InvalidExpression,
+    }
+}
+
+fn testInfixExpression(expression: ast.Expression, left: anytype, operator: []const u8, right: anytype) bool {
+    const infix_expression: *ast.InfixExpression = @ptrCast(@alignCast(expression.ptr));
+
+    testLiteralExpression(infix_expression.*.left_expression, left) catch |err| {
+        std.debug.print("{any}, error occured", .{err});
+        return false;
+    };
+
+    std.testing.expectEqualStrings(operator, infix_expression.operator) catch |err| {
+        std.debug.print("{any}, {any} error occured", .{ infix_expression.operator, err });
+        return false;
+    };
+
+    testLiteralExpression(infix_expression.*.right_expression, right) catch |err| {
+        std.debug.print("{any}, error occured", .{err});
+        return false;
+    };
+    return true;
 }

@@ -199,9 +199,9 @@ pub const Identifier = struct {
         const identifier_str: []const u8 = try std.fmt.allocPrint(allocator, "{s}", .{self.value});
         return identifier_str;
     }
-
     pub fn deinit(ptr: *anyopaque, allocator: std.mem.Allocator) void {
         const self: *Identifier = @ptrCast(@alignCast(ptr));
+        allocator.free(self.*.value);
         allocator.destroy(self);
     }
 
@@ -277,6 +277,7 @@ pub const LetStatement = struct {
 
     pub fn deinit(ptr: *anyopaque, allocator: std.mem.Allocator) void {
         const self: *LetStatement = @ptrCast(@alignCast(ptr));
+        allocator.free(self.*.name.value);
         allocator.destroy(self);
     }
 

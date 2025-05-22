@@ -18,7 +18,7 @@ pub const Lexer = struct {
         return lexer;
     }
 
-    pub fn NextToken(self: *Lexer) Token {
+    pub fn NextToken(self: *Lexer, allocator: std.mem.Allocator) !Token {
         var next_token: Token = undefined;
         self.skipWhiteSpace();
 
@@ -26,70 +26,70 @@ pub const Lexer = struct {
             '=' => {
                 if (self.peakChar() == '=') {
                     self.readChar();
-                    next_token = newToken(TokenType.EQ, "==");
+                    next_token = try newToken(TokenType.EQ, "==", allocator);
                 } else {
-                    next_token = newToken(TokenType.ASSIGN, &[_]u8{self.current_char});
+                    next_token = try newToken(TokenType.ASSIGN, &[_]u8{self.current_char}, allocator);
                 }
             },
             ';' => {
-                next_token = newToken(TokenType.SEMICOLON, &[_]u8{self.current_char});
+                next_token = try newToken(TokenType.SEMICOLON, &[_]u8{self.current_char}, allocator);
             },
             '(' => {
-                next_token = newToken(TokenType.LPAREN, &[_]u8{self.current_char});
+                next_token = try newToken(TokenType.LPAREN, &[_]u8{self.current_char}, allocator);
             },
             ')' => {
-                next_token = newToken(TokenType.RPAREN, &[_]u8{self.current_char});
+                next_token = try newToken(TokenType.RPAREN, &[_]u8{self.current_char}, allocator);
             },
             ',' => {
-                next_token = newToken(TokenType.COMMA, &[_]u8{self.current_char});
+                next_token = try newToken(TokenType.COMMA, &[_]u8{self.current_char}, allocator);
             },
             '!' => {
                 if (self.peakChar() == '=') {
                     self.readChar();
-                    next_token = newToken(TokenType.NOT_EQ, "!=");
+                    next_token = try newToken(TokenType.NOT_EQ, "!=", allocator);
                 } else {
-                    next_token = newToken(TokenType.BANG, &[_]u8{self.current_char});
+                    next_token = try newToken(TokenType.BANG, &[_]u8{self.current_char}, allocator);
                 }
             },
             '{' => {
-                next_token = newToken(TokenType.LBRACE, &[_]u8{self.current_char});
+                next_token = try newToken(TokenType.LBRACE, &[_]u8{self.current_char}, allocator);
             },
             '}' => {
-                next_token = newToken(TokenType.RBRACE, &[_]u8{self.current_char});
+                next_token = try newToken(TokenType.RBRACE, &[_]u8{self.current_char}, allocator);
             },
             '+' => {
-                next_token = newToken(TokenType.PLUS, &[_]u8{self.current_char});
+                next_token = try newToken(TokenType.PLUS, &[_]u8{self.current_char}, allocator);
             },
             '-' => {
-                next_token = newToken(TokenType.MINUS, &[_]u8{self.current_char});
+                next_token = try newToken(TokenType.MINUS, &[_]u8{self.current_char}, allocator);
             },
             '/' => {
-                next_token = newToken(TokenType.SLASH, &[_]u8{self.current_char});
+                next_token = try newToken(TokenType.SLASH, &[_]u8{self.current_char}, allocator);
             },
             '*' => {
-                next_token = newToken(TokenType.ASTERISK, &[_]u8{self.current_char});
+                next_token = try newToken(TokenType.ASTERISK, &[_]u8{self.current_char}, allocator);
             },
             '<' => {
-                next_token = newToken(TokenType.LT, &[_]u8{self.current_char});
+                next_token = try newToken(TokenType.LT, &[_]u8{self.current_char}, allocator);
             },
             '>' => {
-                next_token = newToken(TokenType.GT, &[_]u8{self.current_char});
+                next_token = try newToken(TokenType.GT, &[_]u8{self.current_char}, allocator);
             },
 
             0 => {
-                next_token = newToken(TokenType.EOF, "");
+                next_token = try newToken(TokenType.EOF, "", allocator);
             },
             else => {
                 if (isLetter(self.current_char)) {
                     const literal: []const u8 = self.readIdentifier();
                     const token_type = token.lookUpIdentifier(literal);
-                    next_token = newToken(token_type, literal);
+                    next_token = try newToken(token_type, literal, allocator);
                     return next_token;
                 } else if (isDigit(self.current_char)) {
                     const literal: []const u8 = self.readNumber();
-                    return newToken(TokenType.INT, literal);
+                    return try newToken(TokenType.INT, literal, allocator);
                 } else {
-                    next_token = newToken(TokenType.ILLEGAL, &[_]u8{self.current_char});
+                    next_token = try newToken(TokenType.ILLEGAL, &[_]u8{self.current_char}, allocator);
                 }
             },
         }
@@ -148,6 +148,7 @@ fn isDigit(ch: u8) bool {
     return ('0' <= ch and ch <= '9');
 }
 
-fn newToken(token_type: TokenType, current_char: []const u8) Token {
-    return Token{ .Type = token_type, .Literal = current_char };
+fn newToken(token_type: TokenType, current_char: []const u8, allocator: std.mem.Allocator) !Token {
+    const literal = try allocator.dupe(u8, current_char);
+    return Token{ .Type = token_type, .Literal = literal };
 }
