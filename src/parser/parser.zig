@@ -36,6 +36,8 @@ pub const Parser = struct {
         try prefix_parse_fns.put(TokenType.INT, parseIntegerLiteral);
         try prefix_parse_fns.put(TokenType.MINUS, parsePrefixExpression);
         try prefix_parse_fns.put(TokenType.BANG, parsePrefixExpression);
+        try prefix_parse_fns.put(TokenType.TRUE, parseBooleanExpression);
+        try prefix_parse_fns.put(TokenType.FALSE, parseBooleanExpression);
 
         var infix_parse_fns = std.AutoHashMap(token.TokenType, *const fn (ptr: *Parser, left: ast.Expression, allocator: std.mem.Allocator) anyerror!?ast.Expression).init(allocator);
         try infix_parse_fns.put(TokenType.PLUS, parseInfixExpression);
@@ -182,6 +184,15 @@ pub const Parser = struct {
         integerLiteral.* = ast.IntegerLiteral{ .token = self.current_token.Type, .value = intValue };
 
         return integerLiteral.createExpression();
+    }
+
+    fn parseBooleanExpression(self: *Parser, allocator: std.mem.Allocator) !?ast.Expression {
+        const booleanValue: bool = self.currentTokenIs(TokenType.TRUE);
+
+        const booleanLiteral: *ast.BooleanLiteral = try allocator.create(ast.BooleanLiteral);
+        booleanLiteral.* = ast.BooleanLiteral{ .token = self.current_token.Type, .value = booleanValue };
+
+        return booleanLiteral.createExpression();
     }
 
     fn parseIdentifer(self: *Parser, allocator: std.mem.Allocator) !?ast.Expression {

@@ -221,6 +221,43 @@ pub const Identifier = struct {
         };
     }
 };
+pub const BooleanLiteral = struct {
+    token: TokenType,
+    value: bool,
+
+    pub fn tokenLiteral(ptr: *anyopaque) []const u8 {
+        const self: *BooleanLiteral = @ptrCast(@alignCast(ptr));
+        std.debug.print("\n{}\n", .{self.value});
+        return self.token.toString();
+    }
+
+    pub fn string(ptr: *anyopaque, allocator: std.mem.Allocator) ![]const u8 {
+        const self: *BooleanLiteral = @ptrCast(@alignCast(ptr));
+        const identifier_str: []const u8 = try std.fmt.allocPrint(allocator, "{}", .{self.value});
+        return identifier_str;
+    }
+
+    pub fn deinit(ptr: *anyopaque, allocator: std.mem.Allocator) void {
+        const self: *BooleanLiteral = @ptrCast(@alignCast(ptr));
+        allocator.destroy(self);
+    }
+
+    fn createNode(self: *BooleanLiteral) Node {
+        return Node{ .ptr = self, .vtable = &NodeVTable{
+            .tokenLiteral = tokenLiteral,
+            .string = string,
+            .deinit = deinit,
+        } };
+    }
+
+    pub fn createExpression(self: *BooleanLiteral) Expression {
+        const node: Node = createNode(self);
+        return Expression{
+            .ptr = self,
+            .node = node,
+        };
+    }
+};
 
 pub const IntegerLiteral = struct {
     token: TokenType,
@@ -271,7 +308,13 @@ pub const LetStatement = struct {
 
     pub fn string(ptr: *anyopaque, allocator: std.mem.Allocator) ![]const u8 {
         const let_statement: *LetStatement = @ptrCast(@alignCast(ptr));
-        const statement_str: []const u8 = try std.fmt.allocPrint(allocator, "Let statement is {s} {s} = \n", .{ tokenLiteral(ptr), let_statement.name.value });
+        var expression_str: []const u8 = "";
+        if (let_statement.*.expression != null) {
+            expression_str = try std.fmt.allocPrint(allocator, "{s}", .{try let_statement.*.expression.?.string(allocator)});
+            std.debug.print("The expression value is {any}\n", .{expression_str});
+        }
+        defer allocator.free(expression_str);
+        const statement_str: []const u8 = try std.fmt.allocPrint(allocator, "{s} {s} = {s};\n", .{ tokenLiteral(ptr), let_statement.name.value, expression_str });
         return statement_str;
     }
 
@@ -309,7 +352,7 @@ pub const ReturnStatement = struct {
     }
 
     pub fn string(ptr: *anyopaque, allocator: std.mem.Allocator) ![]const u8 {
-        const statement_str: []const u8 = try std.fmt.allocPrint(allocator, "{s} ", .{tokenLiteral(ptr)});
+        const statement_str: []const u8 = try std.fmt.allocPrint(allocator, "{s} ;", .{tokenLiteral(ptr)});
         return statement_str;
     }
 

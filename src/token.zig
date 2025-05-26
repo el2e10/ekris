@@ -24,6 +24,8 @@ pub const TokenType = enum {
     FUNCTION,
     LET,
     RETURN,
+    TRUE,
+    FALSE,
 
     pub fn toString(token_type: TokenType) []const u8 {
         return switch (token_type) {
@@ -50,6 +52,8 @@ pub const TokenType = enum {
             .FUNCTION => "FUNCTION",
             .LET => "LET",
             .RETURN => "RETURN",
+            .TRUE => "TRUE",
+            .FALSE => "FALSE",
         };
     }
 };
@@ -68,6 +72,8 @@ pub const keywords = [_]Keyword{
     Keyword{ .TokenType = TokenType.FUNCTION, .Value = "func" },
     Keyword{ .TokenType = TokenType.LET, .Value = "let" },
     Keyword{ .TokenType = TokenType.RETURN, .Value = "return" },
+    Keyword{ .TokenType = TokenType.TRUE, .Value = "true" },
+    Keyword{ .TokenType = TokenType.FALSE, .Value = "false" },
 };
 
 pub fn lookUpIdentifier(identifier: []const u8) TokenType {
