@@ -38,6 +38,7 @@ pub const Parser = struct {
         try prefix_parse_fns.put(TokenType.BANG, parsePrefixExpression);
         try prefix_parse_fns.put(TokenType.TRUE, parseBooleanExpression);
         try prefix_parse_fns.put(TokenType.FALSE, parseBooleanExpression);
+        try prefix_parse_fns.put(TokenType.LPAREN, parseGroupedExpression);
 
         var infix_parse_fns = std.AutoHashMap(token.TokenType, *const fn (ptr: *Parser, left: ast.Expression, allocator: std.mem.Allocator) anyerror!?ast.Expression).init(allocator);
         try infix_parse_fns.put(TokenType.PLUS, parseInfixExpression);
@@ -201,6 +202,18 @@ pub const Parser = struct {
         identifier.* = ast.Identifier{ .token = self.current_token.Type, .value = literal };
 
         return identifier.createExpression();
+    }
+
+    fn parseGroupedExpression(self: *Parser, allocator: std.mem.Allocator) !?ast.Expression {
+        try self.nextToken(allocator);
+
+        const expr = try self.parseExpression(Precedence.LOWEST, allocator) orelse return null;
+
+        if (!self.expectPeek(TokenType.RPAREN, allocator)) {
+            return null;
+        }
+
+        return expr;
     }
 
     fn parseReturnStatement(self: *Parser, allocator: std.mem.Allocator) !?ast.Statement {

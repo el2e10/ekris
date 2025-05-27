@@ -27,6 +27,18 @@ test "operator_precedence" {
             .input = "3 < 5 == true;",
             .expected = "((3 < 5) == true)",
         },
+        .{
+            .input = "1 + (2 + 3) + 4;",
+            .expected = "((1 + (2 + 3)) + 4)",
+        },
+        .{
+            .input = "2 / (5 + 5);",
+            .expected = "(2 / (5 + 5))",
+        },
+        .{
+            .input = "!(true == true);",
+            .expected = "(! (true == true))",
+        },
     };
     const test_allocator = std.testing.allocator;
 
@@ -365,19 +377,19 @@ fn checkParserErrors(prsr: *parser.Parser) bool {
     return false;
 }
 
-fn testIntegerLiteral(expression: ast.Expression, value: ValueType) bool {
+fn testIntegerLiteral(expression: ast.Expression, value: i64) bool {
     const int_expression: *ast.IntegerLiteral = @ptrCast(@alignCast(expression.ptr));
 
-    std.testing.expectEqual(int_expression.value, value.int_val) catch |err| {
+    std.testing.expectEqual(int_expression.value, value) catch |err| {
         std.debug.print("error occured {any}", .{err});
         return false;
     };
     return true;
 }
 
-fn testIdentifier(expression: ast.Expression, value: ValueType) bool {
+fn testIdentifier(expression: ast.Expression, value: []const u8) bool {
     const identifier: *ast.Identifier = @ptrCast(@alignCast(expression.ptr));
-    if (std.mem.eql(u8, identifier.value, value.str_val)) {
+    if (std.mem.eql(u8, identifier.value, value)) {
         return false;
     }
     return true;
@@ -386,15 +398,14 @@ fn testIdentifier(expression: ast.Expression, value: ValueType) bool {
 fn testLiteralExpression(expression: ?ast.Expression, expected: ValueType) !bool {
     const expr: ast.Expression = expression orelse return error.NoExpressionError;
     return switch (expected) {
-        ValueTypeTag.int_val => testIntegerLiteral(expr, expected),
-        ValueTypeTag.str_val => testIdentifier(expr, expected),
-        ValueTypeTag.bool_val => testBooleanLiteral(expr, expected),
+        ValueTypeTag.int_val => |val| testIntegerLiteral(expr, val),
+        ValueTypeTag.str_val => |val| testIdentifier(expr, val),
+        ValueTypeTag.bool_val => |val| testBooleanLiteral(expr, val),
     };
 }
 
 fn testInfixExpression(expression: ast.Expression, left: ValueType, operator: []const u8, right: ValueType) bool {
     const infix_expression: *ast.InfixExpression = @ptrCast(@alignCast(expression.ptr));
-    // std.debug.print("The infix expression is {any}\n", .{infix_expression.*.left_expression});
 
     var status: bool = testLiteralExpression(infix_expression.*.left_expression, left) catch |err| {
         std.debug.print("{any}, error occured", .{err});
@@ -413,11 +424,11 @@ fn testInfixExpression(expression: ast.Expression, left: ValueType, operator: []
     return true;
 }
 
-fn testBooleanLiteral(expression: ast.Expression, value: ValueType) bool {
+fn testBooleanLiteral(expression: ast.Expression, value: bool) bool {
     const boolean_expression: *ast.BooleanLiteral = @ptrCast(@alignCast(expression.ptr));
 
-    if (boolean_expression.value != value.bool_val) {
-        std.debug.print("got {any} expected {any}\n", .{ boolean_expression.value, value.bool_val });
+    if (boolean_expression.value != value) {
+        std.debug.print("got {any} expected {any}\n", .{ boolean_expression.value, value });
         return false;
     }
 
