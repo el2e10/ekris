@@ -399,6 +399,7 @@ pub const ExpressionStatement = struct {
 
     pub fn string(ptr: *anyopaque, allocator: std.mem.Allocator) ![]const u8 {
         const self: *ExpressionStatement = @ptrCast(@alignCast(ptr));
+        std.debug.print("Expression statement is called\n", .{});
         var expression_str: []const u8 = "";
         if (self.*.expression) |expr| {
             expression_str = try expr.string(allocator);
@@ -426,5 +427,91 @@ pub const ExpressionStatement = struct {
             .node = node,
         };
         return statement;
+    }
+};
+
+pub const IfExpression = struct {
+    token: TokenType,
+    condition: Expression,
+    consequence: *BlockStatement,
+    alternative: ?BlockStatement,
+
+    pub fn deinit(ptr: *anyopaque, alloctor: std.mem.Allocator) void {
+        const self: *IfExpression = @ptrCast(@alignCast(ptr));
+        self.*.consequence.deinit(alloctor);
+        if (self.*.alternative != null) {
+            self.*.alternative.?.deinit(alloctor);
+        }
+        self.*.condition.deinit(alloctor);
+        alloctor.destroy(self);
+    }
+
+    pub fn tokenLiteral(ptr: *anyopaque) []const u8 {
+        const self: *IfExpression = @ptrCast(@alignCast(ptr));
+        return self.token.toString();
+    }
+
+    pub fn string(ptr: *anyopaque, allocator: std.mem.Allocator) ![]const u8 {
+        const self: *IfExpression = @ptrCast(@alignCast(ptr));
+        var if_expr_str: []const u8 = "";
+
+        const condition_str = try self.condition.string(allocator);
+        defer allocator.free(condition_str);
+
+        const consequence_str = try self.consequence.string(allocator);
+        defer allocator.free(consequence_str);
+
+        if_expr_str = try std.fmt.allocPrint(allocator, "if {s} {s}", .{ condition_str, consequence_str });
+
+        if (self.alternative != null) {
+            const alternative_str = try self.alternative.?.string(allocator);
+            defer allocator.free(alternative_str);
+            if_expr_str = try std.fmt.allocPrint(allocator, "{s} {s}", .{ if_expr_str, alternative_str });
+        }
+        return if_expr_str;
+    }
+
+    fn createNode(self: *IfExpression) Node {
+        return Node{ .ptr = self, .vtable = &NodeVTable{
+            .tokenLiteral = tokenLiteral,
+            .string = string,
+            .deinit = deinit,
+        } };
+    }
+
+    pub fn createExpression(self: *IfExpression) Expression {
+        const node = self.createNode();
+        return Expression{
+            .ptr = self,
+            .node = node,
+        };
+    }
+};
+
+pub const BlockStatement = struct {
+    token: TokenType,
+    statements: []Statement,
+
+    pub fn deinit(self: *BlockStatement, allocator: std.mem.Allocator) void {
+        for (self.*.statements) |stmt| {
+            stmt.deinit(allocator);
+        }
+        allocator.free(self.statements);
+        allocator.destroy(self);
+    }
+
+    pub fn tokenLiteral(ptr: *anyopaque) []const u8 {
+        const self: *ExpressionStatement = @ptrCast(@alignCast(ptr));
+        return self.token.toString();
+    }
+
+    pub fn string(self: *BlockStatement, allocator: std.mem.Allocator) ![]const u8 {
+        var statement_str: []const u8 = "";
+        for (self.*.statements) |stmt| {
+            const tmp_str = try stmt.string(allocator);
+            defer allocator.free(tmp_str);
+            statement_str = try std.fmt.allocPrint(allocator, "{s}{s}", .{ statement_str, tmp_str });
+        }
+        return statement_str;
     }
 };

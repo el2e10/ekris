@@ -39,6 +39,7 @@ pub const Parser = struct {
         try prefix_parse_fns.put(TokenType.TRUE, parseBooleanExpression);
         try prefix_parse_fns.put(TokenType.FALSE, parseBooleanExpression);
         try prefix_parse_fns.put(TokenType.LPAREN, parseGroupedExpression);
+        try prefix_parse_fns.put(TokenType.IF, parseIfExpression);
 
         var infix_parse_fns = std.AutoHashMap(token.TokenType, *const fn (ptr: *Parser, left: ast.Expression, allocator: std.mem.Allocator) anyerror!?ast.Expression).init(allocator);
         try infix_parse_fns.put(TokenType.PLUS, parseInfixExpression);
@@ -124,6 +125,7 @@ pub const Parser = struct {
     fn parseExpression(self: *Parser, precedence: Precedence, allocator: std.mem.Allocator) !?ast.Expression {
         const prefix_fn = self.prefix_parse_fns.get(self.*.current_token.Type);
         if (prefix_fn == null) {
+            std.debug.print("Error happended {s}\n", .{self.current_token.Literal});
             try self.noPrefixParserFnError(self.*.current_token.Type, allocator);
             return null;
         }
@@ -214,6 +216,52 @@ pub const Parser = struct {
         }
 
         return expr;
+    }
+
+    fn parseIfExpression(self: *Parser, allocator: std.mem.Allocator) !?ast.Expression {
+        const if_expression: *ast.IfExpression = try allocator.create(ast.IfExpression);
+        const current_token: TokenType = self.current_token.Type;
+
+        if (!self.expectPeek(TokenType.LPAREN, allocator)) {
+            return null;
+        }
+
+        try self.nextToken(allocator);
+        const condition: ast.Expression = try self.parseExpression(Precedence.LOWEST, allocator) orelse return null;
+
+        if (!self.expectPeek(TokenType.RPAREN, allocator)) {
+            return null;
+        }
+
+        if (!self.expectPeek(TokenType.LBRACE, allocator)) {
+            return null;
+        }
+
+        const consequence: *ast.BlockStatement = try self.parseBlockStatement(allocator);
+
+        if_expression.* = ast.IfExpression{ .token = current_token, .condition = condition, .consequence = consequence, .alternative = null };
+
+        return if_expression.createExpression();
+    }
+
+    fn parseBlockStatement(self: *Parser, allocator: std.mem.Allocator) !*ast.BlockStatement {
+        var statement_array_list = std.ArrayList(ast.Statement).init(allocator);
+        const current_token: TokenType = self.current_token.Type;
+
+        try self.nextToken(allocator);
+
+        while (!self.peekTokenIs(TokenType.RBRACE) and !self.peekTokenIs(TokenType.EOF)) {
+            const statement: ?ast.Statement = try self.parseStatement(allocator);
+            if (statement != null) {
+                try statement_array_list.append(statement.?);
+            }
+            try self.nextToken(allocator);
+        }
+        const statements = try statement_array_list.toOwnedSlice();
+
+        const block_statement: *ast.BlockStatement = try allocator.create(ast.BlockStatement);
+        block_statement.* = ast.BlockStatement{ .token = current_token, .statements = statements };
+        return block_statement;
     }
 
     fn parseReturnStatement(self: *Parser, allocator: std.mem.Allocator) !?ast.Statement {

@@ -26,6 +26,8 @@ pub const TokenType = enum {
     RETURN,
     TRUE,
     FALSE,
+    IF,
+    ELSE,
 
     pub fn toString(token_type: TokenType) []const u8 {
         return switch (token_type) {
@@ -54,6 +56,8 @@ pub const TokenType = enum {
             .RETURN => "RETURN",
             .TRUE => "TRUE",
             .FALSE => "FALSE",
+            .IF => "if",
+            .ELSE => "else",
         };
     }
 };
@@ -74,6 +78,7 @@ pub const keywords = [_]Keyword{
     Keyword{ .TokenType = TokenType.RETURN, .Value = "return" },
     Keyword{ .TokenType = TokenType.TRUE, .Value = "true" },
     Keyword{ .TokenType = TokenType.FALSE, .Value = "false" },
+    Keyword{ .TokenType = TokenType.IF, .Value = "if" },
 };
 
 pub fn lookUpIdentifier(identifier: []const u8) TokenType {
