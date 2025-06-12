@@ -434,7 +434,7 @@ pub const IfExpression = struct {
     token: TokenType,
     condition: Expression,
     consequence: *BlockStatement,
-    alternative: ?BlockStatement,
+    alternative: ?*BlockStatement,
 
     pub fn deinit(ptr: *anyopaque, alloctor: std.mem.Allocator) void {
         const self: *IfExpression = @ptrCast(@alignCast(ptr));
@@ -463,10 +463,14 @@ pub const IfExpression = struct {
 
         if_expr_str = try std.fmt.allocPrint(allocator, "if {s} {s}", .{ condition_str, consequence_str });
 
+        std.debug.print("The alternatvie is {any}", .{self.alternative});
         if (self.alternative != null) {
             const alternative_str = try self.alternative.?.string(allocator);
             defer allocator.free(alternative_str);
-            if_expr_str = try std.fmt.allocPrint(allocator, "{s} {s}", .{ if_expr_str, alternative_str });
+            const if_else_expr_str = try std.fmt.allocPrint(allocator, "{s} else {s}", .{ if_expr_str, alternative_str });
+
+            allocator.free(if_expr_str);
+            return if_else_expr_str;
         }
         return if_expr_str;
     }

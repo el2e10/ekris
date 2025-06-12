@@ -79,6 +79,7 @@ pub const keywords = [_]Keyword{
     Keyword{ .TokenType = TokenType.TRUE, .Value = "true" },
     Keyword{ .TokenType = TokenType.FALSE, .Value = "false" },
     Keyword{ .TokenType = TokenType.IF, .Value = "if" },
+    Keyword{ .TokenType = TokenType.ELSE, .Value = "else" },
 };
 
 pub fn lookUpIdentifier(identifier: []const u8) TokenType {

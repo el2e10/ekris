@@ -238,8 +238,17 @@ pub const Parser = struct {
         }
 
         const consequence: *ast.BlockStatement = try self.parseBlockStatement(allocator);
+        var alternative: ?*ast.BlockStatement = null;
 
-        if_expression.* = ast.IfExpression{ .token = current_token, .condition = condition, .consequence = consequence, .alternative = null };
+        if (self.peekTokenIs(TokenType.ELSE)) {
+            try self.nextToken(allocator);
+            if (!self.expectPeek(TokenType.LBRACE, allocator)) {
+                return null;
+            }
+            alternative = try self.parseBlockStatement(allocator);
+        }
+
+        if_expression.* = ast.IfExpression{ .token = current_token, .condition = condition, .consequence = consequence, .alternative = alternative };
 
         return if_expression.createExpression();
     }
@@ -250,7 +259,7 @@ pub const Parser = struct {
 
         try self.nextToken(allocator);
 
-        while (!self.peekTokenIs(TokenType.RBRACE) and !self.peekTokenIs(TokenType.EOF)) {
+        while (!self.currentTokenIs(TokenType.RBRACE) and !self.currentTokenIs(TokenType.EOF)) {
             const statement: ?ast.Statement = try self.parseStatement(allocator);
             if (statement != null) {
                 try statement_array_list.append(statement.?);
