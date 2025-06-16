@@ -34,6 +34,9 @@ pub const Lexer = struct {
             ';' => {
                 next_token = try newToken(TokenType.SEMICOLON, &[_]u8{self.current_char}, allocator);
             },
+            ':' => {
+                next_token = try newToken(TokenType.COLON, &[_]u8{self.current_char}, allocator);
+            },
             '(' => {
                 next_token = try newToken(TokenType.LPAREN, &[_]u8{self.current_char}, allocator);
             },
@@ -86,8 +89,7 @@ pub const Lexer = struct {
                     next_token = try newToken(token_type, literal, allocator);
                     return next_token;
                 } else if (isDigit(self.current_char)) {
-                    const literal: []const u8 = self.readNumber();
-                    return try newToken(TokenType.INT, literal, allocator);
+                    return try self.readNumber(allocator);
                 } else {
                     next_token = try newToken(TokenType.ILLEGAL, &[_]u8{self.current_char}, allocator);
                 }
@@ -97,6 +99,25 @@ pub const Lexer = struct {
         self.readChar();
 
         return next_token;
+    }
+
+    fn readNumber(self: *Lexer, allocator: std.mem.Allocator) !Token {
+        const start_position: u8 = self.*.position;
+        while (isDigit(self.current_char)) {
+            self.readChar();
+        }
+        if (self.current_char == '.') {
+            return self.readFloatNumber(start_position, allocator);
+        }
+        return try newToken(TokenType.INT_VALUE, self.input[start_position..self.position], allocator);
+    }
+
+    fn readFloatNumber(self: *Lexer, start_position: u8, allocator: std.mem.Allocator) !Token {
+        self.readChar();
+        while (isDigit(self.current_char) or self.current_char == '.') {
+            self.readChar();
+        }
+        return try newToken(TokenType.FLOAT_VALUE, self.input[start_position..self.position], allocator);
     }
 
     fn peakChar(self: *Lexer) u8 {
@@ -129,14 +150,6 @@ pub const Lexer = struct {
         while (self.current_char == ' ' or self.current_char == '\t' or self.current_char == '\n' or self.current_char == '\r') {
             self.readChar();
         }
-    }
-
-    fn readNumber(self: *Lexer) []const u8 {
-        const position: u8 = self.*.position;
-        while (isDigit(self.current_char)) {
-            self.readChar();
-        }
-        return self.input[position..self.position];
     }
 };
 

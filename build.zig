@@ -97,7 +97,7 @@ pub fn build(b: *std.Build) void {
 
     ast_module_test.root_module.addImport("ast", ast_module);
     lexer_module_test.root_module.addImport("token", token_module);
-    lexer_module_test.root_module.addImport("parser", parser_module);
+    // lexer_module_test.root_module.addImport("parser", parser_module);
 
     parser_module_test.root_module.addImport("ast", ast_module);
     parser_module_test.root_module.addImport("token", token_module);
