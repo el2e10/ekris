@@ -3,7 +3,7 @@ const std = @import("std");
 pub const TokenType = enum {
     ILLEGAL,
     EOF,
-    IDENT,
+    IDENTIFIER,
     INT_VALUE,
     FLOAT_VALUE,
     ASSIGN,
@@ -40,7 +40,7 @@ pub const TokenType = enum {
         return switch (token_type) {
             .ILLEGAL => "ILLEGAL",
             .EOF => "EOF",
-            .IDENT => "IDENT",
+            .IDENTIFIER => "IDENTIFIER",
             .INT_VALUE => "INT_VALUE",
             .FLOAT_VALUE => "FLOAT_VALUE",
             .ASSIGN => "=",
@@ -107,5 +107,5 @@ pub fn lookUpIdentifier(identifier: []const u8) TokenType {
             return keyword.TokenType;
         }
     }
-    return TokenType.IDENT;
+    return TokenType.IDENTIFIER;
 }

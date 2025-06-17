@@ -154,7 +154,7 @@ pub const Lexer = struct {
 };
 
 fn isLetter(ch: u8) bool {
-    return ('a' <= ch and ch >= 'z') or ('A' <= ch and ch >= 'Z') or ch == '_';
+    return ('a' <= ch and ch <= 'z') or ('A' <= ch and ch <= 'Z') or ch == '_';
 }
 
 fn isDigit(ch: u8) bool {
