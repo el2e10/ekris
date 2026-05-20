@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <assert.h>
+#include <ctype.h>
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
@@ -46,7 +47,8 @@ void *buf__grow(const void *buf, size_t new_len, size_t elem_size){
 	return new_hdr->buf;
 }
 
-int main(int argc, char **argv) {
+void test_stretchy_buffer(){
+	printf("Testing the stretchy buffer\n");
 	int *buf = NULL;
 
 	int i;
@@ -60,7 +62,95 @@ int main(int argc, char **argv) {
 		assert(buf[i] == i);
 	}
 
+	printf("Test passed\n\n");
 	buf_free(buf);
+}
+
+typedef enum {
+	TOKEN_INT = 128,
+	TOKEN_NAME,
+} TokenKind;
+
+typedef struct {
+	TokenKind kind;
+	union {
+		uint64_t val;
+		struct {
+			char *start;
+			char *end;
+		};
+	};
+} Token;
+
+Token token;
+char *stream;
+/*
+ 12*34 + 45/56 + ~25
+*/
+
+void next_token() {
+	switch(*stream) {
+		case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8':
+		case '9':
+			{
+				uint64_t val = 0;
+				while(isdigit(*stream)){
+					val *= 10;
+					val += *stream++ - '0';
+				}
+				token.kind = TOKEN_INT;
+				token.val = val;
+				break;
+			}
+		case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h': case 'i':
+		case 'j': case 'k': case 'l': case 'm': case 'n': case 'o': case 'p': case 'q': case 'r':
+		case 's': case 't': case 'u': case 'v': case 'w': case 'x': case 'y': case 'z': case 'A':
+		case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H': case 'I': case 'J':
+		case 'K': case 'L': case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R': case 'S':
+		case 'T': case 'U': case 'V': case 'W': case 'X': case 'Y': case 'Z': case '_':
+			{
+				char *start = stream;
+				while(isalnum(*stream) || *stream == '_') {
+					stream++;
+				}
+				token.kind = TOKEN_NAME;
+				token.start = start;
+				token.end = stream;
+				break;
+			}
+		default:
+			token.kind = *stream++;
+			break;
+	}
+}
+
+void print_token(Token token){
+	switch(token.kind) {
+		case TOKEN_INT:
+			printf("TOKEN INT: %llu", token.val);
+			break;
+		case TOKEN_NAME:
+			printf("TOKEN NAME: %.*s", (int)(token.end - token.start), token.start);
+			break;
+		default:
+			printf("TOKEN: %c", token.kind);
+	}
+	printf("\n");
+}
+
+void test_lexer() {
+	printf("Testing the lexer\n");
+	stream = "12*34 + 45/56 + ~25";
+	next_token();
+	while(token.kind) {
+		print_token(token);
+		next_token();
+	}
+}
+
+int main(int argc, char **argv) {
+	test_stretchy_buffer();
+	test_lexer();
 	return 0;
 }
 
