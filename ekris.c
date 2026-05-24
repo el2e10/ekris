@@ -68,7 +68,9 @@ void test_stretchy_buffer(){
 
 typedef enum {
 	TOKEN_INT = 128,
-	TOKEN_NAME,
+	TOKEN_NAME, /* Identifier or variable name */
+	TOKEN_OPERATOR, /* operators like + - >> << ^ */
+	TOKEN_WS, /*Whitespace*/
 } TokenKind;
 
 typedef struct {
@@ -79,17 +81,29 @@ typedef struct {
 			char *start;
 			char *end;
 		};
+		char operator;
 	};
 } Token;
 
 Token token;
 char *stream;
+
 /*
- 12*34 + 45/56 + ~25
+ 12*34 + 45/56 + 25
 */
 
 void next_token() {
 	switch(*stream) {
+		case ' ':
+			token.kind = TOKEN_WS;
+			stream++;
+			break;
+		case '+': case '-': case '*': case '/':
+			{
+				token.kind = TOKEN_OPERATOR;
+				token.operator = *stream++;
+				break;
+			}
 		case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8':
 		case '9':
 			{
@@ -126,11 +140,16 @@ void next_token() {
 
 void print_token(Token token){
 	switch(token.kind) {
+		case TOKEN_WS:
+			return;
 		case TOKEN_INT:
 			printf("TOKEN INT: %llu", token.val);
 			break;
 		case TOKEN_NAME:
 			printf("TOKEN NAME: %.*s", (int)(token.end - token.start), token.start);
+			break;
+		case TOKEN_OPERATOR:
+			printf("TOKEN_OPERATOR: %c", token.operator);
 			break;
 		default:
 			printf("TOKEN: %c", token.kind);
