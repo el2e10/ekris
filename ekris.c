@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <assert.h>
 #include <ctype.h>
+#include <string.h>
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
@@ -73,22 +74,49 @@ typedef enum {
 	TOKEN_WS, /*Whitespace*/
 } TokenKind;
 
+typedef struct InternStr {
+	size_t len;
+	char *str;
+} InternStr;
+
 typedef struct {
 	TokenKind kind;
 	char *start;
 	char *end;
 	union {
-		uint64_t val;
-		char operator;
+		uint64_t val; /* Used for storing numbers */
+		const char *name; /* Used to store the variable names */
+		char operator; /* Used to store the operators in an expression */
 	};
 } Token;
 
 Token token;
 char *stream;
 
-/*
- 12*34 + 45/56 + 25
-*/
+static InternStr *interns;
+
+const char *str_intern_range(const char *start, const char *end) {
+	size_t len = end - start;
+	int i;
+	for(i = 0; i < buf_len(interns); i++) {
+		if(len == interns[i].len && strncmp(interns[i].str, start, len) == 0){
+			return interns[i].str;
+		}
+	}
+	char *str = malloc(len + 1);
+	memcpy(str, start, len);
+	str[len] = '\0';
+	InternStr intern_str = {};
+	intern_str.len = len;
+	intern_str.str = str;
+
+	buf_push(interns, intern_str);
+	return str;
+}
+
+const char *str_intern(const char *str) {
+	return str_intern_range(str, str + strlen(str));
+}
 
 void next_token() {
 	token.start = stream;
@@ -126,6 +154,7 @@ void next_token() {
 					stream++;
 				}
 				token.kind = TOKEN_NAME;
+				token.name = str_intern_range(token.start, stream);
 				break;
 			}
 		default:
@@ -161,7 +190,7 @@ void print_token(Token token){
 void test_lexer() {
 	printf("Testing the lexer\n");
 	/*stream = "12*34 + 45/56 + ~25";*/
-	stream = "apple";
+	stream = "2apple(2)apple";
 	next_token();
 	while(token.kind) {
 		print_token(token);
@@ -169,9 +198,21 @@ void test_lexer() {
 	}
 }
 
+void test_str_intern() {
+	char x1[] = "hello";
+	char y1[] = "hello";
+	assert(x1 != y1);
+	assert(str_intern(x1) == str_intern(y1));
+
+	char y2[] = "hello9";
+	assert(str_intern(x1) != str_intern(y2));
+}
+
 int main(int argc, char **argv) {
 	test_stretchy_buffer();
 	test_lexer();
+	test_str_intern();
+
 	return 0;
 }
 
