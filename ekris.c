@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <limits.h>
+#include <math.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -9,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "token.h"
+#include "ekris.h"
 
 int parse_expr();
 bool match_token(TokenKind);
@@ -106,6 +107,7 @@ const char *token_kind_name(TokenKind kind) {
     static char buf[256];
     switch (kind) {
         case TOKEN_INT: sprintf(buf, "integer"); break;
+        case TOKEN_FLOAT: sprintf(buf, "float"); break;
         case TOKEN_NAME: sprintf(buf, "name"); break;
         default:
             if (kind < 128 && isprint(kind)) {
@@ -150,7 +152,7 @@ uint8_t char_to_digit[256] = {
     ['d'] = 13, ['D'] = 13, ['e'] = 14, ['E'] = 14, ['f'] = 15, ['F'] = 15,
 };
 
-uint64_t scan_int() {
+void scan_int() {
     int base = 10;
     uint64_t val = 0;
     uint64_t digit = 0;
@@ -197,17 +199,62 @@ uint64_t scan_int() {
         val = val * base + digit;
         stream++;
     }
+    token.kind = TOKEN_INT;
+    token.int_val = val;
+}
 
-    return val;
+void scan_float() {
+    /* [0-9]*'.'[0-9]*([eE][-+]?[0-9]+)? */
+    char *start = stream;
+    while (isdigit(*stream)) {
+        stream++;
+    }
+
+    if (*stream == '.') {
+        stream++;
+    }
+    while (isdigit(*stream)) {
+        stream++;
+    }
+
+    if (tolower(*stream) == 'e') {
+        stream++;
+        if (*stream == '+' || *stream == '-') {
+            stream++;
+        }
+        if (!isdigit(*stream)) {
+            syntax_error("Expected digit after float literal exponent, found %c", *stream);
+        }
+        while (isdigit(*stream)) {
+            stream++;
+        }
+    }
+    double val = strtod(start, NULL);
+    if (val == HUGE_VAL || val == -HUGE_VAL) {
+        syntax_error("Floating point value overflow");
+    }
+
+    token.kind = TOKEN_FLOAT;
+    token.float_val = val;
 }
 
 void next_token() {
     token.start = stream;
     switch (*stream) {
         case ' ':
-            token.kind = TOKEN_WS;
-            stream++;
+        case '\n':
+        case '\r':
+        case '\t':
+        case '\v':
+            while (isspace(*stream)) {
+                stream++;
+            }
+            next_token();
             break;
+        case '.': {
+            scan_float();
+            break;
+        }
         case '0':
         case '1':
         case '2':
@@ -218,10 +265,16 @@ void next_token() {
         case '7':
         case '8':
         case '9': {
-            uint64_t val = scan_int();
-            printf("The int value is %lld\n", val);
-            token.kind = TOKEN_INT;
-            token.int_val = val;
+            while (isdigit(*stream)) {
+                stream++;
+            }
+            if (*stream == '.' || tolower(*stream) == 'e') {
+                stream = token.start;
+                scan_float();
+            } else {
+                stream = token.start;
+                scan_int();
+            }
             break;
         }
         case 'a':
@@ -314,8 +367,8 @@ bool expect_token(TokenKind kind) {
 
 void print_token(Token token) {
     switch (token.kind) {
-        case TOKEN_WS: return;
         case TOKEN_INT: printf("TOKEN INT: %llu", token.int_val); break;
+        case TOKEN_FLOAT: printf("TOKEN FLOAT: %f", token.float_val); break;
         case TOKEN_NAME:
             printf("TOKEN NAME: %.*s", (int)(token.end - token.start), token.start);
             break;
@@ -327,6 +380,10 @@ void print_token(Token token) {
 int parse_3() {
     if (is_token(TOKEN_INT)) {
         int val = token.int_val;
+        next_token();
+        return val;
+    } else if (is_token(TOKEN_FLOAT)) {
+        double val = token.float_val;
         next_token();
         return val;
     } else if (match_token('+')) {
@@ -401,9 +458,18 @@ void init_stream(char *str) {
 #define assert_token(x) assert(match_token(x))
 #define assert_token_name(x) assert(token.name == str_intern(x) && match_token(TOKEN_NAME))
 #define assert_token_int(x) assert(token.int_val == (x) && match_token(TOKEN_INT))
+#define assert_token_float(x) assert(token.float_val == (x) && match_token(TOKEN_FLOAT))
 #define assert_token_eof() assert(is_token(0))
 
 void test_lexer() {
+    init_stream("2.33e-2 .33");
+    assert_token_float(2.33e-2);
+    assert_token_float(.33);
+    init_stream("33e1");
+    assert_token_float(33e1);
+    init_stream("33.1");
+    assert_token_float(33.1);
+
     init_stream("042");
     assert_token_int(042);
 
