@@ -282,7 +282,38 @@ void scan_char() {
     token.mod = TOKENMOD_CHAR;
 }
 
-void scan_string() {}
+void scan_string() {
+    assert(*stream == '\"');
+    stream++;
+    char *str = NULL;
+
+    while (*stream && *stream != '"') {
+        char val = *stream;
+        if (val == '\n') {
+            syntax_error("string literals cannont contain new lines");
+        } else if (val == '\\') {
+            stream++;
+            val = escape_to_char[(int)*stream];
+            if (val == 0 && val != '0') {
+                syntax_error("Invalid string literal escape '\\%c'", val);
+            }
+        }
+        buf_push(str, val);
+        stream++;
+    }
+
+    if (*stream) {
+        assert(*stream == '"');
+        stream++;
+    } else {
+        syntax_error("Unexpected end of string literal");
+    }
+    buf_push(str, 0);
+
+    stream++;
+    token.kind = TOKEN_STR;
+    token.str_val = str;
+}
 
 void next_token() {
     token.start = stream;
@@ -521,9 +552,14 @@ void init_stream(char *str) {
 #define assert_token_name(x) assert(token.name == str_intern(x) && match_token(TOKEN_NAME))
 #define assert_token_int(x) assert(token.int_val == (x) && match_token(TOKEN_INT))
 #define assert_token_float(x) assert(token.float_val == (x) && match_token(TOKEN_FLOAT))
+#define assert_token_string(x) assert((strcmp(token.str_val, (x)) == 0) && match_token(TOKEN_STR))
 #define assert_token_eof() assert(is_token(0))
 
 void test_lexer() {
+	init_stream("\"hello\" \"a\\nb\"");
+	assert_token_string("hello");
+	assert_token_string("a\nb");
+
     init_stream("'a' 'c'");
     assert_token_int('a');
     assert_token_int('c');

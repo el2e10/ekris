@@ -3,6 +3,7 @@
 typedef enum {
     TOKEN_INT = 128,
     TOKEN_FLOAT,
+    TOKEN_STR,
     TOKEN_NAME, /* Identifier or variable name */
 } TokenKind;
 
@@ -22,6 +23,7 @@ typedef struct {
     union {
         uint64_t int_val; /* Used for storing integers */
         double float_val; /* Used for storing float */
+		char *str_val;
         const char *name; /* Used to store the variable names */
     };
 } Token;
