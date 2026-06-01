@@ -106,9 +106,15 @@ void syntax_error(const char *fmt, ...) {
 const char *token_kind_name(TokenKind kind) {
     static char buf[256];
     switch (kind) {
-        case TOKEN_INT: sprintf(buf, "integer"); break;
-        case TOKEN_FLOAT: sprintf(buf, "float"); break;
-        case TOKEN_NAME: sprintf(buf, "name"); break;
+        case TOKEN_INT:
+            sprintf(buf, "integer");
+            break;
+        case TOKEN_FLOAT:
+            sprintf(buf, "float");
+            break;
+        case TOKEN_NAME:
+            sprintf(buf, "name");
+            break;
         default:
             if (kind < 128 && isprint(kind)) {
                 sprintf(buf, "%c", kind);
@@ -163,12 +169,15 @@ void scan_int() {
         if (tolower(*stream) == 'x') {
             /* Hexadecimal */
             base = 16;
+            token.mod = TOKENMOD_HEX;
             stream++;
         } else if (isdigit(*stream)) {
             /* Octal */
             base = 8;
+            token.mod = TOKENMOD_OCT;
         } else if (tolower(*stream) == 'b') {
             base = 2;
+            token.mod = TOKENMOD_BIN;
         } else {
             syntax_error("Invalid numberical value");
             stream++;
@@ -238,9 +247,55 @@ void scan_float() {
     token.float_val = val;
 }
 
+char escape_to_char[256] = {
+    ['n'] = '\n', ['r'] = '\r', ['t'] = '\t', ['v'] = '\v', ['b'] = '\b', ['a'] = '\a', ['0'] = '0',
+};
+
+void scan_char() {
+    assert(*stream == '\'');
+    stream++;
+
+    if (*stream == '\'') {
+        syntax_error("char value cannont be empty");
+        stream++;
+    } else if (*stream == '\n') {
+        syntax_error("char value cannot have newline");
+        stream++;
+    } else if (*stream == '\\') {
+        stream++;
+        int val = escape_to_char[(int)*stream];
+        if (val == 0 && val != '0') {
+            syntax_error("");
+        }
+        token.int_val = val;
+    } else {
+        token.int_val = *stream;
+        stream++;
+    }
+
+    if (*stream != '\'') {
+        syntax_error("Expected ' to end char but found, %c", *stream);
+    }
+
+    stream++;
+    token.kind = TOKEN_INT;
+    token.mod = TOKENMOD_CHAR;
+}
+
+void scan_string() {}
+
 void next_token() {
     token.start = stream;
+    token.mod = TOKENMOD_NONE;
     switch (*stream) {
+        case '\'': {
+            scan_char();
+            break;
+        }
+        case '\"': {
+            scan_string();
+            break;
+        }
         case ' ':
         case '\n':
         case '\r':
@@ -337,7 +392,9 @@ void next_token() {
             token.name = str_intern_range(token.start, stream);
             break;
         }
-        default: token.kind = *stream++; break;
+        default:
+            token.kind = *stream++;
+            break;
     }
     token.end = stream;
 }
@@ -367,12 +424,17 @@ bool expect_token(TokenKind kind) {
 
 void print_token(Token token) {
     switch (token.kind) {
-        case TOKEN_INT: printf("TOKEN INT: %llu", token.int_val); break;
-        case TOKEN_FLOAT: printf("TOKEN FLOAT: %f", token.float_val); break;
+        case TOKEN_INT:
+            printf("TOKEN INT: %llu", token.int_val);
+            break;
+        case TOKEN_FLOAT:
+            printf("TOKEN FLOAT: %f", token.float_val);
+            break;
         case TOKEN_NAME:
             printf("TOKEN NAME: %.*s", (int)(token.end - token.start), token.start);
             break;
-        default: printf("TOKEN: %c", token.kind);
+        default:
+            printf("TOKEN: %c", token.kind);
     }
     printf("\n");
 }
@@ -462,16 +524,21 @@ void init_stream(char *str) {
 #define assert_token_eof() assert(is_token(0))
 
 void test_lexer() {
-    init_stream("2.33e-2 .33");
+    init_stream("'a' 'c'");
+    assert_token_int('a');
+    assert_token_int('c');
+    assert_token_eof();
+
+    init_stream("2.33e-2 .33 33e1 33.1");
     assert_token_float(2.33e-2);
     assert_token_float(.33);
-    init_stream("33e1");
     assert_token_float(33e1);
-    init_stream("33.1");
     assert_token_float(33.1);
+    assert_token_eof();
 
     init_stream("042");
     assert_token_int(042);
+    assert_token_eof();
 
     init_stream("XY+(XY)_HELLO1,0x23a+994");
     assert_token_name("XY");
