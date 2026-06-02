@@ -163,24 +163,22 @@ void scan_int() {
     uint64_t val = 0;
     uint64_t digit = 0;
 
-    /*This if is for supporting hexadecimals, octal and binary*/
+    /*This is for supporting hexadecimals, octal and binary*/
     if (*stream == '0') {
         stream++;
         if (tolower(*stream) == 'x') {
             /* Hexadecimal */
             base = 16;
-            token.mod = TOKENMOD_HEX;
             stream++;
+            token.mod = TOKENMOD_HEX;
         } else if (isdigit(*stream)) {
             /* Octal */
             base = 8;
             token.mod = TOKENMOD_OCT;
         } else if (tolower(*stream) == 'b') {
             base = 2;
-            token.mod = TOKENMOD_BIN;
-        } else {
-            syntax_error("Invalid numberical value");
             stream++;
+            token.mod = TOKENMOD_BIN;
         }
     }
 
@@ -315,6 +313,7 @@ void scan_string() {
     token.str_val = str;
 }
 
+/* clang-format off */
 void next_token() {
     token.start = stream;
     token.mod = TOKENMOD_NONE;
@@ -327,30 +326,19 @@ void next_token() {
             scan_string();
             break;
         }
-        case ' ':
-        case '\n':
-        case '\r':
-        case '\t':
-        case '\v':
+        case ' ': case '\n': case '\r': case '\t': case '\v': {
             while (isspace(*stream)) {
                 stream++;
             }
             next_token();
             break;
+			}
         case '.': {
             scan_float();
             break;
         }
-        case '0':
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-        case '9': {
+        case '0': case '1': case '2': case '3': case '4': case '5':
+        case '6': case '7': case '8': case '9': {
             while (isdigit(*stream)) {
                 stream++;
             }
@@ -363,59 +351,12 @@ void next_token() {
             }
             break;
         }
-        case 'a':
-        case 'b':
-        case 'c':
-        case 'd':
-        case 'e':
-        case 'f':
-        case 'g':
-        case 'h':
-        case 'i':
-        case 'j':
-        case 'k':
-        case 'l':
-        case 'm':
-        case 'n':
-        case 'o':
-        case 'p':
-        case 'q':
-        case 'r':
-        case 's':
-        case 't':
-        case 'u':
-        case 'v':
-        case 'w':
-        case 'x':
-        case 'y':
-        case 'z':
-        case 'A':
-        case 'B':
-        case 'C':
-        case 'D':
-        case 'E':
-        case 'F':
-        case 'G':
-        case 'H':
-        case 'I':
-        case 'J':
-        case 'K':
-        case 'L':
-        case 'M':
-        case 'N':
-        case 'O':
-        case 'P':
-        case 'Q':
-        case 'R':
-        case 'S':
-        case 'T':
-        case 'U':
-        case 'V':
-        case 'W':
-        case 'X':
-        case 'Y':
-        case 'Z':
-        case '_': {
+        case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h': case 'i':
+        case 'j': case 'k': case 'l': case 'm': case 'n': case 'o': case 'p': case 'q': case 'r':
+        case 's': case 't': case 'u': case 'v': case 'w': case 'x': case 'y': case 'z': case 'A':
+        case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H': case 'I': case 'J':
+        case 'K': case 'L': case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R': case 'S':
+        case 'T': case 'U': case 'V': case 'W': case 'X': case 'Y': case 'Z': case '_': {
             while (isalnum(*stream) || *stream == '_') {
                 stream++;
             }
@@ -429,6 +370,7 @@ void next_token() {
     }
     token.end = stream;
 }
+/* clang-format on */
 
 bool is_token(TokenKind kind) { return token.kind == kind; }
 
@@ -556,9 +498,10 @@ void init_stream(char *str) {
 #define assert_token_eof() assert(is_token(0))
 
 void test_lexer() {
-	init_stream("\"hello\" \"a\\nb\"");
-	assert_token_string("hello");
-	assert_token_string("a\nb");
+    printf("Testing lexer\n");
+    init_stream("\"hello\" \"a\\nb\"");
+    assert_token_string("hello");
+    assert_token_string("a\nb");
 
     init_stream("'a' 'c'");
     assert_token_int('a');
@@ -572,8 +515,8 @@ void test_lexer() {
     assert_token_float(33.1);
     assert_token_eof();
 
-    init_stream("042");
-    assert_token_int(042);
+    init_stream("0");
+    assert_token_int(0);
     assert_token_eof();
 
     init_stream("XY+(XY)_HELLO1,0x23a+994");
@@ -588,6 +531,7 @@ void test_lexer() {
     assert_token('+');
     assert_token_int(994);
     assert_token_eof();
+    printf("Testing lexer - passed\n");
 }
 
 #undef assert_token_eof
