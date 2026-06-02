@@ -1,12 +1,3 @@
-.zig-cache/
-zig-out/
-/release/
-/debug/
-/build/
-/build-*/
-/docgen_tmp/
-zig-cache/
-
 # General
 .DS_Store
 .AppleDouble
