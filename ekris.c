@@ -313,6 +313,27 @@ void scan_string() {
     token.str_val = str;
 }
 
+#define CASE1(c, c1, k1)                                                                           \
+    case c:                                                                                        \
+        token.kind = *stream++;                                                                    \
+        if (*stream == c1) {                                                                       \
+            token.kind = k1;                                                                       \
+            stream++;                                                                              \
+        }                                                                                          \
+        break;
+
+#define CASE2(c, c1, k1, c2, k2)                                                                   \
+    case c:                                                                                        \
+        token.kind = *stream++;                                                                    \
+        if (*stream == c1) {                                                                       \
+            token.kind = k1;                                                                       \
+            stream++;                                                                              \
+        } else if (*stream == c2) {                                                                \
+            token.kind = k2;                                                                       \
+            stream++;                                                                              \
+        }                                                                                          \
+        break;
+
 /* clang-format off */
 void next_token() {
     token.start = stream;
@@ -364,6 +385,9 @@ void next_token() {
             token.name = str_intern_range(token.start, stream);
             break;
         }
+		CASE1(':', '=', TOKEN_COLON_ASSIGN)
+		CASE2('+', '=', TOKEN_ADD_ASSIGN, '+', TOKEN_INC)
+		CASE2('-', '=', TOKEN_SUB_ASSIGN, '-', TOKEN_DEC)
         default:
             token.kind = *stream++;
             break;
@@ -371,6 +395,8 @@ void next_token() {
     token.end = stream;
 }
 /* clang-format on */
+#undef CASE1
+#undef CASE2
 
 bool is_token(TokenKind kind) { return token.kind == kind; }
 
@@ -499,6 +525,12 @@ void init_stream(char *str) {
 
 void test_lexer() {
     printf("Testing lexer\n");
+
+    init_stream("++ --");
+    assert_token(TOKEN_INC);
+    assert_token(TOKEN_DEC);
+    assert_token_eof();
+
     init_stream("\"hello\" \"a\\nb\"");
     assert_token_string("hello");
     assert_token_string("a\nb");
