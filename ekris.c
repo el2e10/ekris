@@ -385,9 +385,45 @@ void next_token() {
             token.name = str_intern_range(token.start, stream);
             break;
         }
+		case '>': {
+			stream++;
+			if(*stream == '>') {
+				token.kind = TOKEN_RSHIFT;
+				stream++;
+				if(*stream == '='){
+					token.kind = TOKEN_RSHIFT_ASSIGN;
+					stream++;
+				}
+			} else if(*stream == '=') {
+				token.kind = TOKEN_GTEQ;
+				stream++;
+			} 
+			break;
+		}
+		case '<': {
+			stream++;
+			if(*stream == '<') {
+				token.kind = TOKEN_LSHIFT;
+				stream++;
+				if(*stream == '='){
+					token.kind = TOKEN_LSHIFT_ASSIGN;
+					stream++;
+				}
+			} else if(*stream == '=') {
+				token.kind = TOKEN_LTEQ;
+				stream++;
+			}
+			break;
+		}
 		CASE1(':', '=', TOKEN_COLON_ASSIGN)
+		CASE1('^', '=', TOKEN_XOR_ASSIGN)
+		CASE1('*', '=', TOKEN_MUL_ASSIGN)
+		CASE1('/', '=', TOKEN_DIV_ASSIGN)
+		CASE1('%', '=', TOKEN_MOD_ASSIGN)
 		CASE2('+', '=', TOKEN_ADD_ASSIGN, '+', TOKEN_INC)
 		CASE2('-', '=', TOKEN_SUB_ASSIGN, '-', TOKEN_DEC)
+		CASE2('|', '=', TOKEN_OR_ASSIGN, '|', TOKEN_OR)
+		CASE2('&', '=', TOKEN_AND_ASSIGN, '&', TOKEN_AND)
         default:
             token.kind = *stream++;
             break;
@@ -526,9 +562,11 @@ void init_stream(char *str) {
 void test_lexer() {
     printf("Testing lexer\n");
 
-    init_stream("++ --");
+    init_stream("++ -- >> >>=");
     assert_token(TOKEN_INC);
     assert_token(TOKEN_DEC);
+    assert_token(TOKEN_RSHIFT);
+    assert_token(TOKEN_RSHIFT_ASSIGN);
     assert_token_eof();
 
     init_stream("\"hello\" \"a\\nb\"");
